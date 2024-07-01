@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="32700.99.1234" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina6_12" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="22684"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="System colors in document resources" minToolsVersion="11.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <scenes>
+        <!--Next Product Page-->
+        <scene sceneID="s0d-6b-0kx">
+            <objects>
+                <viewController storyboardIdentifier="NextProductPage" id="Y6W-OH-hqX" customClass="NextProductPage" customModule="Samplepro" customModuleProvider="target" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="5EZ-qb-Rvc">
+                        <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="OZw-0V-FMx">
+                                <rect key="frame" x="5" y="69" width="383" height="739"/>
+                                <subviews>
+                                    <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="ipad" translatesAutoresizingMaskIntoConstraints="NO" id="mGc-OF-Uox">
+                                        <rect key="frame" x="1" y="1" width="381" height="538"/>
+                                    </imageView>
+                                    <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="NJc-Bg-MBh">
+                                        <rect key="frame" x="100" y="547" width="182" height="35"/>
+                                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                                        <state key="normal" title="Button"/>
+                                        <buttonConfiguration key="configuration" style="plain" title="See Products ">
+                                            <color key="baseForegroundColor" systemColor="systemBlueColor"/>
+                                        </buttonConfiguration>
+                                    </button>
+                                </subviews>
+                                <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+                                <constraints>
+                                    <constraint firstAttribute="trailing" secondItem="mGc-OF-Uox" secondAttribute="trailing" constant="1" id="CO0-ML-t5z"/>
+                                    <constraint firstAttribute="bottom" secondItem="mGc-OF-Uox" secondAttribute="bottom" constant="200" id="ROS-Bz-7CJ"/>
+                                    <constraint firstItem="mGc-OF-Uox" firstAttribute="top" secondItem="OZw-0V-FMx" secondAttribute="top" constant="1" id="pzP-lv-aC0"/>
+                                    <constraint firstItem="mGc-OF-Uox" firstAttribute="leading" secondItem="OZw-0V-FMx" secondAttribute="leading" constant="1" id="sme-zJ-7e0"/>
+                                </constraints>
+                            </view>
+                        </subviews>
+                        <viewLayoutGuide key="safeArea" id="vDu-zF-Fre"/>
+                        <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+                        <constraints>
+                            <constraint firstItem="vDu-zF-Fre" firstAttribute="trailing" secondItem="OZw-0V-FMx" secondAttribute="trailing" constant="5" id="tVg-rK-W6s"/>
+                            <constraint firstItem="OZw-0V-FMx" firstAttribute="top" secondItem="vDu-zF-Fre" secondAttribute="top" constant="10" id="uSH-1t-eRR"/>
+                            <constraint firstItem="vDu-zF-Fre" firstAttribute="bottom" secondItem="OZw-0V-FMx" secondAttribute="bottom" constant="10" id="wrY-f3-4kz"/>
+                            <constraint firstItem="OZw-0V-FMx" firstAttribute="leading" secondItem="vDu-zF-Fre" secondAttribute="leading" constant="5" id="yBF-PV-J92"/>
+                        </constraints>
+                    </view>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="Ief-a0-LHa" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="52.671755725190835" y="-27.464788732394368"/>
+        </scene>
+    </scenes>
+    <resources>
+        <image name="ipad" width="600" height="450"/>
+        <systemColor name="systemBackgroundColor">
+            <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+        </systemColor>
+        <systemColor name="systemBlueColor">
+            <color red="0.0" green="0.47843137254901963" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </systemColor>
+    </resources>
+</document>

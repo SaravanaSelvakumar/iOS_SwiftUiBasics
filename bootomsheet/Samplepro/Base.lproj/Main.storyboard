@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="32700.99.1234" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="BYZ-38-t0r">
+    <device id="retina6_12" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="22684"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <scenes>
+        <!--View Controller-->
+        <scene sceneID="tne-QT-ifu">
+            <objects>
+                <viewController id="BYZ-38-t0r" customClass="ViewController" customModule="Samplepro" customModuleProvider="target" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="8bC-Xf-vdC">
+                        <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="UPS-aD-S6H">
+                                <rect key="frame" x="25" y="109" width="343" height="400"/>
+                                <subviews>
+                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="All products " textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="YhQ-re-Zb8">
+                                        <rect key="frame" x="100" y="367" width="131" height="28"/>
+                                        <fontDescription key="fontDescription" type="system" weight="semibold" pointSize="23"/>
+                                        <nil key="textColor"/>
+                                        <nil key="highlightedColor"/>
+                                    </label>
+                                    <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="all-products" translatesAutoresizingMaskIntoConstraints="NO" id="AHG-OV-ih0">
+                                        <rect key="frame" x="2" y="5" width="339" height="370"/>
+                                    </imageView>
+                                </subviews>
+                                <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                <constraints>
+                                    <constraint firstItem="YhQ-re-Zb8" firstAttribute="leading" secondItem="UPS-aD-S6H" secondAttribute="leading" constant="100" id="3vk-ft-f5O"/>
+                                    <constraint firstAttribute="height" constant="400" id="E6p-h0-esI"/>
+                                    <constraint firstAttribute="trailing" secondItem="AHG-OV-ih0" secondAttribute="trailing" constant="2" id="WMV-TF-w9K"/>
+                                    <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="YhQ-re-Zb8" secondAttribute="trailing" constant="20" symbolic="YES" id="ayR-yq-sbP"/>
+                                    <constraint firstAttribute="bottom" secondItem="AHG-OV-ih0" secondAttribute="bottom" constant="25" id="qfB-tZ-unh"/>
+                                    <constraint firstItem="AHG-OV-ih0" firstAttribute="leading" secondItem="UPS-aD-S6H" secondAttribute="leading" constant="2" id="sVM-6k-7ZQ"/>
+                                    <constraint firstAttribute="bottom" secondItem="YhQ-re-Zb8" secondAttribute="bottom" constant="5" id="uLj-dS-Ey1"/>
+                                    <constraint firstItem="AHG-OV-ih0" firstAttribute="top" secondItem="UPS-aD-S6H" secondAttribute="top" constant="5" id="xZG-4I-aAA"/>
+                                </constraints>
+                            </view>
+                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="mOi-iU-cGi">
+                                <rect key="frame" x="50" y="609" width="293" height="59"/>
+                                <subviews>
+                                    <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="zew-f8-mqV">
+                                        <rect key="frame" x="0.0" y="0.0" width="293" height="59"/>
+                                        <inset key="imageEdgeInsets" minX="0.0" minY="0.0" maxX="2.2250738585072014e-308" maxY="0.0"/>
+                                        <connections>
+                                            <action selector="actionOnContinueBtn" destination="BYZ-38-t0r" eventType="touchUpInside" id="gkp-si-DBP"/>
+                                        </connections>
+                                    </button>
+                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Choose product" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="OfV-Gr-hXo">
+                                        <rect key="frame" x="85.333333333333343" y="19" width="122.66666666666666" height="21"/>
+                                        <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                        <nil key="textColor"/>
+                                        <nil key="highlightedColor"/>
+                                    </label>
+                                </subviews>
+                                <color key="backgroundColor" red="0.52791278050000001" green="0.89488955429999995" blue="0.89824021460000003" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                <constraints>
+                                    <constraint firstItem="OfV-Gr-hXo" firstAttribute="centerY" secondItem="mOi-iU-cGi" secondAttribute="centerY" id="5ic-Md-pla"/>
+                                    <constraint firstItem="zew-f8-mqV" firstAttribute="leading" secondItem="mOi-iU-cGi" secondAttribute="leading" id="ZR0-Ak-RAN"/>
+                                    <constraint firstAttribute="bottom" secondItem="zew-f8-mqV" secondAttribute="bottom" id="Zkj-xm-bej"/>
+                                    <constraint firstItem="zew-f8-mqV" firstAttribute="top" secondItem="mOi-iU-cGi" secondAttribute="top" id="ePA-AU-qhB"/>
+                                    <constraint firstAttribute="trailing" secondItem="zew-f8-mqV" secondAttribute="trailing" id="lF8-UG-1bd"/>
+                                    <constraint firstItem="OfV-Gr-hXo" firstAttribute="centerX" secondItem="mOi-iU-cGi" secondAttribute="centerX" id="lho-FM-xyW"/>
+                                </constraints>
+                            </view>
+                        </subviews>
+                        <viewLayoutGuide key="safeArea" id="6Tk-OE-BBY"/>
+                        <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                        <constraints>
+                            <constraint firstItem="UPS-aD-S6H" firstAttribute="top" secondItem="6Tk-OE-BBY" secondAttribute="top" constant="50" id="Gp3-9O-aC9"/>
+                            <constraint firstItem="6Tk-OE-BBY" firstAttribute="trailing" secondItem="UPS-aD-S6H" secondAttribute="trailing" constant="25" id="GsI-QL-Ngo"/>
+                            <constraint firstItem="6Tk-OE-BBY" firstAttribute="trailing" secondItem="mOi-iU-cGi" secondAttribute="trailing" constant="50" id="Hms-mX-ee9"/>
+                            <constraint firstItem="UPS-aD-S6H" firstAttribute="leading" secondItem="6Tk-OE-BBY" secondAttribute="leading" constant="25" id="Q0x-Vh-rRR"/>
+                            <constraint firstAttribute="bottomMargin" secondItem="mOi-iU-cGi" secondAttribute="bottom" constant="150" id="Uab-Rn-gKk"/>
+                            <constraint firstItem="mOi-iU-cGi" firstAttribute="top" secondItem="UPS-aD-S6H" secondAttribute="bottom" constant="100" id="X6p-Xj-lNB"/>
+                            <constraint firstItem="mOi-iU-cGi" firstAttribute="leading" secondItem="6Tk-OE-BBY" secondAttribute="leading" constant="50" id="ont-pH-tfz"/>
+                        </constraints>
+                    </view>
+                    <connections>
+                        <outlet property="chooseProductBtn" destination="mOi-iU-cGi" id="k93-sk-jwg"/>
+                    </connections>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="dkx-z0-nzr" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="130.53435114503816" y="-34.507042253521128"/>
+        </scene>
+    </scenes>
+    <resources>
+        <image name="all-products" width="600" height="450"/>
+    </resources>
+</document>
