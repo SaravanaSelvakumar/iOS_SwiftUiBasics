@@ -1,0 +1,439 @@
+//
+//  Enumeration.swift
+//  LiveSessions
+//
+//  Created by Apzzo Technologies Private Limited on 05/07/21.
+//
+
+import UIKit
+
+enum RootVCType {
+    case homeVC
+    case onboardVC
+    case tutorLoginVC
+    case emailVerificationVC
+    case splash
+    case Group
+}
+
+enum GroupType {
+    case new
+    case Edit
+    
+}
+
+/// Storyboard Types for all the modules
+/// - Main
+/// - Authentication
+/// - Product
+
+enum SoundType {
+    case sendSound
+    case receiveSound
+}
+
+enum DateFormate: String {
+    case normal = "MMMM dd, yyyy"
+    case bithDayServerFormat = "yyyy-MM-dd"
+    case chatFormat = "dd MMM yyyy"
+    case normalWithTime = "MMM dd, yyyy HH:mm:ss"
+    case timestampFormat = "yyyy-MM-dd HH:mm:ss"
+    case timeFormat = "hh:mm: a"
+    case chatTimeFormate = "hh:mm a"
+    case serverTimeFormate = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
+    case secondaryNormalWithTime = "MMM dd, yyyy"
+    case monthAndDate = "MMM yyyy"
+    case messageInfoTime = "dd MMMM, hh:mm a"
+    case currentDateFormat = "dd/MM/yyyy HH:mm:ss"
+}
+
+enum EndPoint: String {
+    case login = "auth/login"
+    case student_Login = "auth/verify-otp"
+    case tutorLogin = "auth/tutorLogin"
+    case sendOTP = "auth/resent-email-otp"
+    case emailVerification = "auth/send-email-otp"
+    case updateUserName = "auth/update-user-name"
+    case student_SendOtp = "auth/send-otp"
+    case updateProfile = "auth/update-user"
+    case updateEmail = "auth/verify-otp-update-email"
+    case fetchChat_Group_List = "group/student-admin-groups"
+    case fetchSupportChat_List = "session/get-support-chat"
+    case fetch_Tutor_List = "auth/fetch-users-active"
+    case fetch_Active_Users = "fetch-users-active"
+    case create_Session_Group_Admin = "session/create-session-group"
+    case create_Session_Tutor_Admin = "session/create-session-oneonone"
+    case notes_List = "notes/notes"
+    case quickReply_List = "quick-reply/user-quick-replies"
+    case add_Note = "notes/create-notes"
+    case add_QuickReply = "quick-reply/create-quick-reply"
+    case delete_Note = "notes/delete-notes"
+    case delete_QuickReply = "quick-reply/delete-quick-reply"
+    case update_Note = "notes/update-notes"
+    case update_quickReply = "quick-reply/update-quick-reply"
+    case verifyOTP = "auth/verify-email-otp"
+    case createGroup = "chat/create-group"
+    case updateGroup = "chat/update-group"
+    case fetchGroup = "chat/fetch-group-list"
+    case fetchGroupMember = "chat/get-user-list"
+    case deleteGroup = "chat/delete-group"
+    case registerUser = "auth/register"
+    case updatePassword = "auth/update-password"
+    case fetchOffers = "offer/offers"
+    case readOffer = "offer/read-offer"
+    case createOffer = "offer/create-offer"
+    case fetchSessions = "session/sessions"
+    case fetchAnnouncement = "session/get-broadcast-session"
+    case fetchSession = "session/"
+    case fetchSingleSession = "session/more-session"
+    case fetchTutorSessions = "tutor/session-tutors"
+    case contactUs = "contact/send-message"
+    case addSessionUser = "session/add-student-session"
+    case addSessionRating = "rating/create-rating"
+    case fetchSessionRating = "rating/sessionRating"
+    case fetchMessage = "message/messages"
+    case fetchMessageDate = "message/messages-date"
+    case fetchUnreadMessageDate = "device-management/unread-data"
+    case fetchAllMessage = "message/all-session-messages"
+    case fetchAllMessageCount = "message/all-message-count"
+    case readAllSessionMessage = "session/session-readall"
+    case fetchMessageInfo = "message/readers"
+    case fetchDeliveredMessageInfo = "message/delivered-users"
+    case refreshToken = "auth/refresh-token"
+    case fetchSearchMessage = "message/search-messages"
+    case fetchSessionUser = "session/session-users"
+    case updateSessionRating = "rating/update-rating"
+    case createPushToken = "push/create-push-token"
+    case sessionRatings = "rating/ratings"
+    case userProtection = "user-protection/user-protection-list"
+    case createUserProtection = "user-protection/create-user-protection"
+    case onboard = "onboard/onboards"
+    case createWork = "work/create-work"
+    case updateWork = "work/update-work"
+    case disputeWork = "work/dispute-work"
+    case deleteAccount = "auth/delete-user"
+    case referralsList = "v1/work-transaction/wallet-histories"
+    case readAllReferrals = "referral/read-all-referrals"
+    case referralCount = "referral/referral-count"
+    case works = "work/works"
+    case deleteWork = "work/delete-work"
+    case workPaymentOrderId = "work/getWorkOrderId"
+    case workPaymentSuccess = "work/workPaymentSuccess"
+    case changeStatusWork = "work/work-status-change"
+    case refundAmount = "work/work-refund"
+    case settledAmount = "work/work-settle"
+    case changeWonLostStatusWork = "/work/work-dispute-status-change"
+    case workRating = "rating/create-work-rating"
+    case workRatingList = "rating/work-ratings"
+    case names = "name/names"
+    case createName = "name/create-name"
+    case updateName = "name/update-name"
+    case deleteName = "name/delete-name"
+    case label = "label/"
+    case createLabel = "label/create-label"
+    case stripePayment = "v1/work-transaction/stripe-payment"
+    case updateLabel = "label/update-label"
+    case deleteLabel = "label/delete-label"
+    case fetchLabel = "label/labels"
+    case globalSearch = "chat/search-group-message"
+    case createInvoice = "v1/work-transaction/create-work-transaction"
+    case fetchWorkTransaction = "v1/work-transaction/work-transactions"
+    case resendWorkTransaction = "v1/work-transaction/work-transaction-resend"
+    case feedBack = "work/work-feedback"
+    case getWorkOrderId = "v1/work-transaction/getWorkOrderId"
+    case billing = "auth/update-billing-address"
+    case paymentSuccess = "v1/work-transaction/workPaymentSuccess"
+    case paymentBonusSuccess = "v1/work-transaction/complete-payment"
+    case paymentUnSuccess = "v1/work-transaction/workPaymentFailure"
+    
+    //new authentication
+    case studentWhatsAppOtp = "v1/auth/send-otp"
+    case verifyWhatsApp = "v1/auth/verify-otp"
+    case studentEmailOtp = "v1/auth/email-otp"
+    case verifyEmail = "v1/auth/verify-email-otp"
+    
+    case updatePhoneNo = "v1/auth/verify-update-phoneno"
+    case verifyUpdateEmail = "v1/auth/verify-update-email"
+    
+    case updatePhoneNoOtp = "/otp/send-otp-phone"
+    case updateEmailNoOtp = "/otp/send-otp-email"
+    
+    //new authentication
+    case fetchAllProfileCount = "auth/profile-count"
+    case walletReadAllCount = "wallet-histories/read-all"
+    
+}
+
+enum AccountType: String {
+    case TUTOR
+    case STUDENT
+    case CHAT_ADMIN
+}
+
+enum FlowType {
+        case group
+        case individual
+    }
+
+enum NewReferralType: String {
+    case NONE
+    case NEW
+}
+
+enum PaymentOption: String  {
+    case stripePay = "STRIPE"
+    case razorPay = "RAZORPAY"
+}
+
+enum IntSize: String {
+    case size1
+    case size2
+    case size3
+    case size4
+    case size5
+    case size6
+    case size7
+    case size8
+    case size9
+    case size10
+    
+    var value: String  {
+        switch self {
+        case .size1: return "00"
+        case .size2: return "100"
+        case .size3: return "1000"
+        case .size4: return "10000"
+        case .size5: return "100000"
+        case .size6: return "1000000"
+        case .size7: return "10000000"
+        case .size8: return "100000000"
+        case .size9: return "1000000000"
+        case .size10: return "10000000000"
+        }
+    }
+}
+
+enum countDownSeconds: String {
+    case size1
+    case size2
+    case size3
+    case size4
+    case size5
+    case size6
+    case size7
+    case size8
+    case size9
+    case size10
+    
+    
+    var value: String  {
+        switch self {
+        case .size1: return "0.2"
+        case .size2: return "0.02"
+        case .size3: return "0.025"
+        case .size4: return "0.0025"
+        case .size5: return "0.00255"
+        case .size6: return "0.000255"
+        case .size7: return "0.0000255"
+        case .size8: return "0.00025555"
+        case .size9: return "0.000025555"
+        case .size10: return "0.000025555"
+        }
+    }
+}
+
+enum TabbarTitle: String {
+    case Sessions
+    case Completed
+    case Offers
+    case Chats
+    case Settings
+}
+
+enum LogType {
+    case debug
+    case info
+    case notice
+    case warn
+    case error
+    case critical
+}
+
+enum BucketFolder {
+    case organization
+    case profile
+    case expense
+}
+
+enum SessionStatus {
+    case live
+    case upcoming
+    case completed
+}
+
+enum MessageType: String {
+    case IMAGE
+    case DOCUMENT
+    case VIDEO
+    case TEXT
+    case JOIN_STATUS
+    case UNREAD
+    case START_OF_CHAT
+    case GREETINGS
+    case LAST
+    case DATE
+    case LINK
+    case INVOICE
+    case LABEL
+    case NOTES
+}
+
+enum DocumentType: String {
+    case pdf
+    case excel = "xlsx"
+    case word = "docx"
+    case other = ""
+    case ppt
+    
+    var image: String {
+        switch self {
+        case .pdf: return "pdf_doc"
+        case .excel: return "excel_doc"
+        case .word: return "word_doc"
+        case .other: return "other_doc"
+        case .ppt: return "ppt_doc"
+        }
+    }
+}
+
+enum Role: String {
+    case STUDENT
+    case TUTOR
+    case CHAT_ADMIN 
+    case SESSION_ADMIN
+    case SUPER_ADMIN
+    
+    var roleName: String {
+        switch self {
+        
+        case .STUDENT: return "STUDENT"
+        case .TUTOR: return "TUTOR"
+        case .CHAT_ADMIN: return "CHAT_ADMIN"
+        case .SESSION_ADMIN: return "SESSION_ADMIN"
+        case .SUPER_ADMIN: return "SUPER_ADMIN"
+        }
+    }
+    
+    var name: String {
+        switch self {
+        
+        case .STUDENT: return "Student"
+        case .TUTOR: return "Tutor"
+        case .CHAT_ADMIN: return "Chat Admin"
+        case .SESSION_ADMIN: return "Session Admin"
+        case .SUPER_ADMIN: return "Super Admin"
+        }
+    }
+}
+
+enum TimeFormat: String {
+    case server = ""
+}
+
+enum ChatType {
+    case sessions
+    case adminGroups
+    case tutor
+    case work
+}
+
+enum Usertype: String {
+    case student = "STUDENT"
+    case tutor  = "TUTOR"
+    case chatAdmin = "CHAT_ADMIN"
+    
+}
+
+enum CategoryType {
+    case BOOKS
+    case STUDY_MATERIAL
+    case OTHER
+    case QA
+}
+enum ChatRoles: String {
+    case student = "STUDENT"
+    case superAdmin = "SUPER_ADMIN"
+    case sessionAdmin = "SESSION_ADMIN"
+    case tutor = "TUTOR"
+    case chatAdmin = "CHAT_ADMIN"
+    
+    var color: UIColor {
+        switch self {
+        case .student: return #colorLiteral(red: 0.4745098039, green: 0, blue: 1, alpha: 1)
+        case .superAdmin: return .red
+        case .sessionAdmin: return #colorLiteral(red: 0.2745098174, green: 0.4862745106, blue: 0.1411764771, alpha: 1)
+        case .tutor: return .orange
+        case .chatAdmin: return .blue
+        }
+    }
+}
+
+enum CharacterColor: String {
+    case a
+    case b
+    case c
+    case d
+    case e
+    case f
+    case g
+    case h
+    case i
+    case j
+    case k
+    case l
+    case m
+    case n
+    case o
+    case p
+    case q
+    case r
+    case s
+    case t
+    case u
+    case v
+    case w
+    case x
+    case y
+    case z
+    
+    var color: UIColor {
+        switch self {
+        case .a: return #colorLiteral(red: 0, green: 0.4509803922, blue: 0.631372549, alpha: 1)
+        case .b: return #colorLiteral(red: 0.3215686275, green: 0.1411764706, blue: 0.431372549, alpha: 1)
+        case .c: return #colorLiteral(red: 0.9019607843, green: 0.5294117647, blue: 0.7098039216, alpha: 1)
+        case .d: return #colorLiteral(red: 0.4549019608, green: 0.768627451, blue: 0.9647058824, alpha: 1)
+        case .e: return #colorLiteral(red: 0.2666666667, green: 0.2509803922, blue: 0.8862745098, alpha: 1)
+        case .f: return #colorLiteral(red: 0.6901960784, green: 0.2, blue: 0.4705882353, alpha: 1)
+        case .g: return #colorLiteral(red: 0.6274509804, green: 0.5960784314, blue: 0.3882352941, alpha: 1)
+        case .h: return #colorLiteral(red: 0.4156862745, green: 0.3764705882, blue: 0.4980392157, alpha: 1)
+        case .i: return #colorLiteral(red: 0.737254902, green: 0.5019607843, blue: 0.1843137255, alpha: 1)
+        case .j: return #colorLiteral(red: 0.7019607843, green: 0.4705882353, blue: 0.5294117647, alpha: 1)
+        case .k: return #colorLiteral(red: 0.1450980392, green: 0.2509803922, blue: 0.3137254902, alpha: 1)
+        case .l: return #colorLiteral(red: 0.1176470588, green: 0.4039215686, blue: 0.3411764706, alpha: 1)
+        case .m: return #colorLiteral(red: 0.8196078431, green: 0.8470588235, blue: 0.2156862745, alpha: 1)
+        case .n: return #colorLiteral(red: 0.5725490196, green: 0.7176470588, blue: 0.7450980392, alpha: 1)
+        case .o: return #colorLiteral(red: 0.4117647059, green: 0.4039215686, blue: 0.2823529412, alpha: 1)
+        case .p: return #colorLiteral(red: 0.1647058824, green: 0.5490196078, blue: 0.4156862745, alpha: 1)
+        case .q: return #colorLiteral(red: 0.5568627715, green: 0.3529411852, blue: 0.9686274529, alpha: 1)
+        case .r: return #colorLiteral(red: 0.7058823529, green: 0.337254902, blue: 0.1529411765, alpha: 1)
+        case .s: return #colorLiteral(red: 0.8666666667, green: 0.3607843137, blue: 0.3921568627, alpha: 1)
+        case .t: return #colorLiteral(red: 0.5725490196, green: 0.6862745098, blue: 0.1019607843, alpha: 1)
+        case .u: return #colorLiteral(red: 1, green: 0.6941176471, blue: 0.8392156863, alpha: 1)
+        case .v: return #colorLiteral(red: 0.9156077504, green: 0.5245380998, blue: 0.5931079388, alpha: 1)
+        case .w: return #colorLiteral(red: 0.9411764706, green: 1, blue: 0, alpha: 1)
+        case .x: return #colorLiteral(red: 0, green: 0.9254901961, blue: 1, alpha: 1)
+        case .y: return #colorLiteral(red: 1, green: 0, blue: 0.8588235294, alpha: 1)
+        case .z: return #colorLiteral(red: 0, green: 0.5690457821, blue: 0.5746168494, alpha: 0.4768211921)
+        }
+    }
+}
