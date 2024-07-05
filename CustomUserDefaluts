@@ -1,0 +1,293 @@
+//
+//  CustomUserDefaults.swift
+//  NExtServ
+//
+//  Created by Sakthikumar on 6/03/18.
+//  Copyright © 2018 Sakthikumar. All rights reserved.
+//
+
+import UIKit
+
+
+let REFERRAL_BADGE = "REFERRAL_BADGE"
+let USER_ACCOUNT_TYPE = "USER_ACCOUNT_TYPE"
+let PUSH_TOKEN = "PUSH_TOKEN"
+#if ECADEMICTUBE_DEV
+let sharedDefault = UserDefaults(suiteName: "group.com.indoglobe.ecademictube.dev")!
+#else
+let sharedDefault = UserDefaults(suiteName: "group.com.indoglobe.ecademictube")!
+#endif
+
+
+
+
+class CustomUserDefaults: NSObject {
+    // MARK:- Set & Get Access Token
+    
+    
+    static var AccessToken: String? {
+        set {
+            sharedDefault.set(newValue, forKey: "Access_Token")
+        }
+        get {
+            sharedDefault.object(forKey: "Access_Token") as? String
+        }
+    }
+    
+    static var ApiToken: String? {
+        set {
+            sharedDefault.set(newValue, forKey: "Api_Token")
+        }
+        get {
+            sharedDefault.object(forKey: "Api_Token") as? String
+        }
+    }
+    
+    static var FilePath: String? {
+        set {
+            sharedDefault.set(newValue, forKey: "File-Path")
+        }
+        get {
+            sharedDefault.object(forKey: "File-Path") as? String
+        }
+    }
+    
+    
+    static var UserId: String? {
+        set {
+            sharedDefault.set(newValue, forKey: "USER_ID")
+        }
+        get {
+            sharedDefault.object(forKey: "USER_ID") as? String
+        }
+    }
+    
+    static var baseUrl: String? {
+        set {
+            sharedDefault.set(newValue, forKey: "BASE_URL")
+        }
+        get {
+            sharedDefault.object(forKey: "BASE_URL") as? String
+        }
+    }
+    
+    static var bucketBaseUrl: String? {
+        set {
+            sharedDefault.set(newValue, forKey: "BUCKET_BASE_URL")
+        }
+        get {
+            sharedDefault.object(forKey: "BUCKET_BASE_URL") as? String
+        }
+    }
+    
+    static var unSendLastMessage: String? {
+        set {
+            sharedDefault.set(newValue, forKey: "UN_SEND_MESSAGE")
+        }
+        get {
+            sharedDefault.object(forKey: "UN_SEND_MESSAGE") as? String
+        }
+    }
+    
+    static var isServerDown: Bool? {
+        set {
+            sharedDefault.set(newValue, forKey: "SERVER_DOWN")
+        }
+        get {
+            sharedDefault.object(forKey: "SERVER_DOWN") as? Bool
+        }
+    }
+    
+    static var isLoggedIn: Bool? {
+        set {
+            sharedDefault.set(newValue, forKey: "IS_LOGGED_IN")
+        }
+        get {
+            sharedDefault.object(forKey: "IS_LOGGED_IN") as? Bool
+        }
+    }
+    
+    
+    static var messageId: String? {
+        set {
+            sharedDefault.set(newValue, forKey: "MESSAGE_ID")
+        }
+        get {
+            sharedDefault.object(forKey: "MESSAGE_ID") as? String
+        }
+    }
+    
+    static var phoneNumber: String? {
+        set {
+            sharedDefault.set(newValue, forKey: "PHONE_NO")
+        }
+        get {
+            sharedDefault.object(forKey: "PHONE_NO") as? String
+        }
+    }
+    
+    static var countryCode: String? {
+        set {
+            sharedDefault.set(newValue, forKey: "PHONE_CODE")
+        }
+        get {
+            sharedDefault.object(forKey: "PHONE_CODE") as? String
+        }
+    }
+    
+    static var lastMessageDate: String? {
+        set {
+            sharedDefault.set(newValue, forKey: "MESSAGEDATE")
+        }
+        get {
+            sharedDefault.object(forKey: "MESSAGEDATE") as? String
+        }
+    }
+    
+    static var badgeCount: Int {
+        set {
+            sharedDefault.set(newValue, forKey: "BADGECOUNT")
+        }
+        get {
+            sharedDefault.object(forKey: "BADGECOUNT") as? Int ?? 1
+        }
+    }
+    
+    static var UserLastSeenTime: Date? {
+        set {
+            sharedDefault.set(newValue, forKey: "USER_LAST_SEEN_TIME")
+        }
+        get {
+            sharedDefault.object(forKey: "USER_LAST_SEEN_TIME") as? Date
+        }
+    }
+    
+    static var pushToken: String? {
+        set {
+            sharedDefault.set(newValue, forKey: PUSH_TOKEN)
+        }
+        get {
+            sharedDefault.object(forKey: PUSH_TOKEN) as? String
+        }
+    }
+    
+    
+    static var IsEmailVerified: Bool? {
+        set {
+            sharedDefault.set(newValue, forKey: "EMAIL_VERIFIED")
+        }
+        get {
+            sharedDefault.object(forKey: "EMAIL_VERIFIED") as? Bool
+        }
+    }
+
+    
+    static var IsVerified: Bool? {
+        set {
+            sharedDefault.set(newValue, forKey: "USER_IS_VERIFIED")
+        }
+        get {
+            sharedDefault.object(forKey: "USER_IS_VERIFIED") as? Bool
+        }
+    }
+    
+    
+    static var UserName: String? {
+        set {
+            sharedDefault.set(newValue, forKey: "USER_NAME")
+        }
+        get {
+            sharedDefault.object(forKey: "USER_NAME") as? String
+        }
+    }
+    
+    static var isForward: Bool {
+        set {
+            sharedDefault.set(newValue, forKey: "FORWARD")
+        }
+        get {
+            sharedDefault.object(forKey: "FORWARD") as? Bool ?? false
+        }
+    }
+    
+    static var isStartedForward: Bool {
+        set {
+            sharedDefault.set(newValue, forKey: "STARTFORWARD")
+        }
+        get {
+            sharedDefault.object(forKey: "STARTFORWARD") as? Bool ?? false
+        }
+    }
+    
+    // MARK:- Set & Get Name
+    static func getReferralType() -> NewReferralType {
+        let referralTypeString = UserDefaults.standard.value(forKey: REFERRAL_BADGE) as? String ?? ""
+        return NewReferralType(rawValue: referralTypeString) ?? .NONE
+    }
+
+    static func setReferralType(type: NewReferralType) {
+        UserDefaults.standard.set(type.rawValue, forKey: REFERRAL_BADGE)
+    }
+    
+    // MARK:- Set & Get Name
+    static var CurrentDate: String? {
+        set {
+            sharedDefault.set(newValue, forKey: "CURRENT_DATE")
+        }
+        get {
+            sharedDefault.object(forKey: "CURRENT_DATE") as? String
+        }
+    }
+    
+    // MARK:- Set & Get Role
+    static var UserRole: String? {
+        set {
+            sharedDefault.set(newValue, forKey: "USER_TPYE")
+        }
+        get {
+            sharedDefault.object(forKey: "USER_TPYE") as? String
+        }
+    }
+    
+    static var PinnedList : [String]? {
+        set {
+            sharedDefault.set(newValue, forKey: "PINNED_LIST")
+        }
+        get {
+            sharedDefault.object(forKey: "PINNED_LIST") as? [String]
+        }
+    }
+    
+    // MARK:- Set & Get User Account Type
+    static func getAccountType() -> AccountType {
+        let userTypeString = UserDefaults.standard.value(forKey: USER_ACCOUNT_TYPE) as? String ?? ""
+        return AccountType(rawValue: userTypeString) ?? .STUDENT
+    }
+
+    static func setAccountType(type: AccountType) {
+        UserDefaults.standard.set(type.rawValue, forKey: USER_ACCOUNT_TYPE)
+    }
+
+    // MARK:- Set & Get Push Token
+    static var PushToken: String? {
+        set {
+            sharedDefault.set(newValue, forKey: "PUSH_TOKEN")
+        }
+        get {
+            sharedDefault.object(forKey: "PUSH_TOKEN") as? String
+        }
+    }
+    
+    // MARK:- Set & Get SessionIds Token
+    static var SessionIds: String? {
+        set {
+            sharedDefault.set(newValue, forKey: "SESSION_IDS")
+        }
+        get {
+            sharedDefault.object(forKey: "SESSION_IDS") as? String
+        }
+    }
+    
+    
+    
+}
