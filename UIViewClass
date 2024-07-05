@@ -1,0 +1,140 @@
+//
+//  UIView+Extension.swift
+//  LiveSessions
+//
+//  Created by Apzzo Technologies Private Limited on 05/07/21.
+//
+
+import UIKit
+
+extension UIView {
+    func setCornerRadius(radius: CGFloat, borderColor: UIColor = #colorLiteral(red: 0.5019607843, green: 0.5843137255, blue: 0.7176470588, alpha: 1), borderWidth: CGFloat = 0.0) {
+        layer.masksToBounds = true
+        layer.cornerRadius = radius
+        layer.borderColor = borderColor.cgColor
+        layer.borderWidth = borderWidth
+    }
+    
+    func addRoundedCorner() {
+        self.layer.masksToBounds = true
+        self.layer.cornerRadius = self.frame.height / 2
+      }
+
+    func addGradientBackground(firstColor: UIColor, secondColor: UIColor) {
+            clipsToBounds = true
+            let gradientLayer = CAGradientLayer()
+        gradientLayer.colors = [firstColor.cgColor, secondColor.cgColor]
+            gradientLayer.frame = self.bounds
+            gradientLayer.startPoint = CGPoint(x: 0, y: 0)
+            gradientLayer.endPoint = CGPoint(x: 1, y: 0)
+            print(gradientLayer.frame)
+            self.layer.insertSublayer(gradientLayer, at: 0)
+        }
+    
+    func shadow(color: UIColor = UIColor.darkGray, cornerRadius: CGFloat = 0.0, shadowRadius: CGFloat = 4.0, shadowOpacity: Float = 0.3) {
+        layer.shadowColor = color.cgColor
+        layer.shadowOpacity = shadowOpacity
+        layer.shadowRadius = shadowRadius
+        layer.masksToBounds = false
+        layer.cornerRadius = cornerRadius
+        layer.shadowOffset = CGSize(width: 0, height: 1.0)
+    }
+    
+    func addShadow(cornerRadius: CGFloat = 0.0, height: Int = 1, shadowOpacity: Float = 0.2) {
+         layer.cornerRadius = 10
+         layer.borderWidth = 0.0
+         layer.borderColor = UIColor.black.cgColor
+         layer.shadowColor = UIColor.black.cgColor
+         layer.masksToBounds = false
+         layer.shadowOffset = CGSize(width: 0, height: height)
+         layer.shadowOpacity = shadowOpacity
+         layer.shadowRadius = 0.5
+        }
+    
+    func addShadow(radius: Int = 10,height: Int = 1, fromRightToLeft: Bool = false) {
+        self.layer.shadowColor = UIColor.black.cgColor
+        if fromRightToLeft {
+            self.layer.shadowOffset = CGSize(width: -1, height: height)
+        } else {
+            self.layer.shadowOffset = CGSize(width: 1, height: height)
+        }
+        self.layer.shadowOpacity = 0.3
+        self.layer.cornerRadius = CGFloat(radius)
+    }
+    
+//     Set Cornerradius only for Top of the View
+    func setCornerRadiusForTop(radius: CGFloat) {
+        let maskLayer = CAShapeLayer()
+        maskLayer.path = UIBezierPath(roundedRect: bounds,
+                                      byRoundingCorners: [.topLeft, .topRight],
+                                      cornerRadii: CGSize(width: radius, height: radius)).cgPath
+        layer.mask = maskLayer
+    }
+    
+    /// Set Cornerradius only for Top of the View
+    func setCornerRadiusForTop(cornerRadius: CGFloat) {
+        self.layer.cornerRadius = cornerRadius
+        self.layer.maskedCorners = [.layerMaxXMinYCorner, .layerMinXMinYCorner]
+        self.layer.masksToBounds = true
+    }
+    
+    func setCornerRadiusForBottom(radius: CGFloat) {
+        let maskLayer = CAShapeLayer()
+        maskLayer.path = UIBezierPath(roundedRect: bounds,
+                                      byRoundingCorners: [.bottomLeft, .bottomRight],
+                                      cornerRadii: CGSize(width: radius, height: radius)).cgPath
+        layer.mask = maskLayer
+    }
+    
+    /// Set Cornerradius only for Bottom of the View
+    func setCornerRadiusForBottom() {
+        self.layer.cornerRadius = 15
+        self.layer.maskedCorners = [.layerMaxXMaxYCorner,.layerMinXMaxYCorner]
+    }
+    
+    
+    func addDashedBorder(color: UIColor, cornerRadius: CGFloat, lineWidth: CGFloat, lineDashPattern: [NSNumber]) {
+            // Create a CAShapeLayer for the dashed border
+            let shapeLayer = CAShapeLayer()
+            shapeLayer.strokeColor = color.cgColor
+            shapeLayer.lineWidth = lineWidth
+            shapeLayer.lineDashPattern = lineDashPattern
+            shapeLayer.fillColor = nil
+            
+            // Create a rounded rectangle path based on the view's bounds and corner radius
+            let path = UIBezierPath(roundedRect: bounds, cornerRadius: cornerRadius)
+            
+            // Set the shapeLayer's path to the created path
+            shapeLayer.path = path.cgPath
+            
+            // Add the shapeLayer as a sublayer to the view's layer
+            layer.addSublayer(shapeLayer)
+        }
+
+    func blink(duration: TimeInterval = 0.5, repetitions: Int = 1) {
+        var remainingReps = repetitions
+        let oldColor = backgroundColor
+        UIView.animate(withDuration: duration, animations: {
+            self.backgroundColor = UIColor.lightGray
+        }) { _ in
+            UIView.animate(withDuration: duration, animations: {
+                self.backgroundColor = oldColor
+            }) { _ in
+                remainingReps -= 1
+                if remainingReps > 0 {
+                    self.blink(duration: duration, repetitions: remainingReps)
+                }
+            }
+        }
+    }
+
+    func shake(){
+          let animation = CABasicAnimation(keyPath: "position")
+          animation.duration = 0.07
+          animation.repeatCount = 3
+          animation.autoreverses = true
+          animation.fromValue = NSValue(cgPoint: CGPoint(x: self.center.x - 10, y: self.center.y))
+          animation.toValue = NSValue(cgPoint: CGPoint(x: self.center.x + 10, y: self.center.y))
+          self.layer.add(animation, forKey: "position")
+      }
+}
