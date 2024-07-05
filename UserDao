@@ -1,0 +1,115 @@
+//
+//  UserDAO.swift
+//  LiveSessions
+//
+//  Created by Apzzo on 04/07/22.
+//
+
+import Foundation
+import RealmSwift
+
+class UserDao: NSObject {
+    static let realm = try! Realm(configuration: Realm.Configuration(deleteRealmIfMigrationNeeded: true))
+
+    // Save User to Local DB
+    class func saveOrUpdateUsers(users: [RealmUser]) {
+        try! realm.write {
+            realm.add(users, update: .all)
+        }
+    }
+
+    // Save User to Local DB
+    class func saveOrUpdateUser(user: RealmUser) {
+        try! realm.write {
+            realm.add(user, update: .all)
+        }
+    }
+
+    // Save User to Local DB
+    class func createUser(user: RealmUser) {
+        do {
+            try realm.write {
+                realm.add(user, update: .all)
+            }
+        } catch let error as NSError {
+            realm.cancelWrite()
+            print(error.localizedDescription)
+        }
+    }
+    
+    class func createUserForStudent(user: RealmUser, countryCode: String) {
+        do {
+            try realm.write {
+                user.countryCode = countryCode
+                realm.add(user, update: .all)
+            }
+        } catch let error as NSError {
+            realm.cancelWrite()
+            print(error.localizedDescription)
+        }
+    }
+    
+    // Save  Background color to Local DB
+    class func saveOrUpdatePhoneNoEmail(user: RealmUser, email: String, phoneNo: String) {
+            do {
+                try realm.write {
+                    user.phoneNo = phoneNo
+                    user.email   = email
+                    realm.add(user, update: .all)
+                }
+            } catch let error as NSError {
+                realm.cancelWrite()
+                print(error.localizedDescription)
+            }
+        }
+    
+    // Save  Background color to Local DB
+    class func saveBackgroundColor(colorCode: String,user: RealmUser) {
+        try! realm.write {
+            user.backgroundColor = colorCode
+        }
+    }
+    class func fetchUsers() -> [RealmUser] {
+        return Array(realm.objects(RealmUser.self)).suffix(20)
+    }
+
+    class func fetchUserUsingId(id: String) -> RealmUser? {
+        let datas = Array(realm.objects(RealmUser.self).filter({ $0.id == id })).first
+        return datas
+    }
+
+//    class func getPinnedChatIds(context: Context): RealmList<String> {
+//        return fetchUserUsingId(PrefManager.getUserId(context))?.pinChatGroupIds ? : RealmList()
+//    }
+
+    class func isUserFoundInDB() -> Bool {
+        return !realm.objects(RealmUser.self).isEmpty
+    }
+    
+    class func unreadChatGroup(id: String) {
+        let userData = UserDao.fetchUserUsingId(id: CustomUserDefaults.UserId ?? "")
+        if let unreadSessionIds = userData?.unreadChatGroupIds {
+            let datas = List<String>()
+            let unreadIds = unreadSessionIds.filter({ $0 != id })
+            unreadIds.forEach({ datas.append($0) })
+            try! UserDao.realm.write {
+                userData?.unreadChatGroupIds = datas
+            }
+        }
+        SocketIOManager.unreadChatGroupsStatus()
+    }
+    
+    class func unreadGroup(id: String) {
+        let userData = UserDao.fetchUserUsingId(id: CustomUserDefaults.UserId ?? "")
+        if let unreadSessionIds = userData?.unreadGroupIds {
+            let datas = List<String>()
+            let unreadIds = unreadSessionIds.filter({ $0 != id })
+            unreadIds.forEach({ datas.append($0) })
+            try! UserDao.realm.write {
+                userData?.unreadGroupIds = datas
+            }
+        }
+        SocketIOManager.sendUnreadGroupsStatus()
+    }
+    
+}
