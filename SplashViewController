@@ -1,0 +1,497 @@
+//
+//  SplashViewController.swift
+//  PillRemainder
+//
+//  Created by Sakthikumar on 8/31/17.
+//  Copyright © 2017 admin. All rights reserved.
+//
+
+import NVActivityIndicatorView
+import UIKit
+import StripeCore
+
+class SplashViewController: BaseViewController {
+    static let name = "SplashViewController"
+    static let storyBoard = "Authentication_iPhone"
+    
+    /// The caller of this class does not need to know how we instantiate it.
+    /// We simply return the instantiated class to the caller and they invoke it how they want
+    /// If the as! fails, it will fail upon immediate testing
+    class func instantiateFromStoryboard() -> SplashViewController {
+        let vc = UIStoryboard(name: SplashViewController.storyBoard, bundle: nil).instantiateViewController(withIdentifier: SplashViewController.name) as! SplashViewController
+        return vc
+    }
+    
+    // MARK: - IBOutlet Declaration
+    
+    @IBOutlet var messagesProgressBar: UIProgressView!
+    @IBOutlet var activityIndicatorV: UIActivityIndicatorView!
+    @IBOutlet var messageLb: UILabel!
+    @IBOutlet var percentageLb: UILabel!
+    @IBOutlet var completedIV: UIImageView!
+    @IBOutlet var messageCompletedIV: UIImageView!
+    @IBOutlet var chatsProgressBar: UIProgressView!
+    @IBOutlet var chatsLb: UILabel!
+    @IBOutlet var progessV: UIView!
+    @IBOutlet var chatsPercentageLb: UILabel!
+    
+    @IBOutlet var iconCONS: NSLayoutConstraint!
+    
+    // MARK: - Variable Declaration
+    
+    var isFromOtp = false
+    var progressValue : Float = 0
+    var messageProgressValue : Float = 0
+    var messageProgressStartingValue : Float = 0
+    var sessionIds = [String]()
+    var loadingTimer = Timer()
+    var pageNumber = 1
+    var limit = 50
+    var isLast = false
+    var chatListPageNumber = 1
+    var groupPageNumber = 1
+    var groupLimit = 25
+    var chatListLimit = 25
+    var chatListIsLast = false
+    var groupIsLast = false
+    var isMessage = false
+    var messageCount: Float = 0
+    var messageSize = 0
+    var user: RealmUser?
+    
+    // MARK: - Override Function
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        Utils.isUpdating = true
+        Utils.isErrorMessageAllowed = true
+        sessionIds.removeAll()
+        completedIV.isHidden = true
+        isMessage = false
+        CustomUserDefaults.isStartedForward = false
+        CustomUserDefaults.isForward = true
+        navigationController?.setNavigationBarHidden(true, animated: false)
+        Utils.firstLogin = true
+        percentageLb.isHidden = true
+        messageCompletedIV.isHidden = true
+        activityIndicatorV.startAnimating()
+        progessV.isHidden = false
+        // Show onboard screen if user not loggedIn.
+        if !Utils.isLoggedIn && !(CustomUserDefaults.isLoggedIn ?? false) {
+            Utils.setRootController(rootVCType: .tutorLoginVC)
+        } else {
+            checkForLocalDB()
+        }
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        CustomUserDefaults.baseUrl = BASE_URL
+        CustomUserDefaults.bucketBaseUrl = BUCKET_BASE_URL
+        CustomUserDefaults.FilePath = "\(FileManager.getDocumentsDirectory())"
+        Utils.createPushTokenServerCall()
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        Utils.messageSound = true
+        loadingTimer.invalidate()
+        Utils.isErrorMessageAllowed = false
+    }
+    
+    override func applicationDidBecomeActive(notification: Notification) {
+        guard isFromOtp else { return }
+        if completedIV.isHidden == true {
+            progressValue = 0.01
+            fetchWorksServiceCall()
+        }
+        if messageProgressValue < 1 && completedIV.isHidden == false {
+            messageProgressValue = messageProgressStartingValue
+            pageNumber = 1
+        }
+    }
+    
+    func fetchUserDetailsServerCall() {
+        let start = Date()
+        DataManager.sharedInstance().fetchUserDetails(userId: CustomUserDefaults.UserId ?? "") { error, response in
+            DispatchQueue.main.async { [self] in
+                if let error = error {
+                    Utils.setRootController(rootVCType: .tutorLoginVC)
+//                } else if let user = response?.realmUser, user.name?.isEmpty ?? false || user.email.isEmpty {
+//                    let udateProfileVC = UpdateProfileViewController.instantiateFromStoryboard()
+//                    self.navigationController?.pushViewController(udateProfileVC, animated: true)
+                } else if let user = response?.realmUser {
+                    if !SocketIOManager.isConnected && CustomUserDefaults.isLoggedIn ?? false {
+                        SocketIOManager.connectSocket()
+                    }
+                    Utils.appVersion = user.iOSVersion ?? "0"
+//                    Timer.scheduledTimer(withTimeInterval: 3, repeats: false) { [self] _ in
+                        UserDao.saveOrUpdateUser(user: user)
+                        CustomUserDefaults.PinnedList = user.getallPinnedSessionIds
+                        CustomUserDefaults.UserName = user.name?.isEmpty ?? false ? user.userName : user.name
+                        Utils.setRootController(rootVCType: .homeVC)
+//                    }
+                } else {
+                    Utils.setRootController(rootVCType: .tutorLoginVC)
+                }
+            }
+        }
+    }
+    
+    func checkForLocalDB() {
+        guard isFromOtp else {
+            iconCONS.constant = 0
+            Utils.isUnreadMessage = true
+            progessV.isHidden = true
+            fetchUserDetailsServerCall()
+            return
+        }
+        // Here API has in dispatch group inside so its for avoid continuous API call, I inserted all API inside group.enter() for based on class variable group -- by Amilzith
+//        user = UserDao.fetchUserUsingId(id: CustomUserDefaults.UserId ?? "")
+//        loadingTimer = Timer.scheduledTimer(timeInterval: user?.role == "SUPER_ADMIN" ? 0.75 : 0.35, target: self, selector: #selector(update), userInfo: nil, repeats: true)
+        Utils.isChatListUpadted = false
+        iconCONS.constant = -50
+        fetchWorksServiceCall()
+    }
+    
+    @objc func update(){
+        
+        if !isMessage {
+            if (progressValue <= 1) {
+                progressValue += 0.004
+                chatsProgressBar.progress = progressValue
+                chatsPercentageLb.text = "(\(Int(chatsProgressBar.progress * 100))%)"
+            }
+        } else {
+            if (messageProgressValue <= 1) {
+                messageProgressValue += messageCount
+                messagesProgressBar.progress = messageProgressValue
+                percentageLb.text = "(\(Int(messagesProgressBar.progress * 100))%)"
+            }else {
+                loadingTimer.invalidate()
+            }
+        }
+    }
+}
+
+
+// MARK: - Fetching all sessionIds uisng API's:
+
+extension SplashViewController {
+    
+    func fetchallmessageCount() {
+        let param = [
+            "sessionIds": sessionIds
+        ] as [String: Any]
+        DataManager.sharedInstance().fetchallMessagesCount(parameter: param) { [self] error, response in
+            DispatchQueue.main.async { [self] in
+                if error != nil {
+                    loadingTimer.invalidate()
+                    showErrorAlert()
+                } else {
+                    guard let countv = response?.data.count else { return }
+                    messageSize = String(response?.data.count ?? 0).count
+                    let count =  IntSize(rawValue: "size\(messageSize)")?.value
+                    let totalCount = Double(countv/50)
+                    messageProgressStartingValue = Float(totalCount / Double((Int(count ?? "0") ?? 0)) )
+                    messageProgressValue = Float(totalCount / Double((Int(count ?? "0") ?? 0)) )
+                    setup()
+                }
+                
+            }
+        }
+    }
+}
+
+// MARK: - Fetching all chats uisng API's:
+
+extension SplashViewController {
+    /// Session Conversation Service Call
+    func getConversationsList() {
+        chatsLb.text = "Loading your sessions..."
+        let start = Date()
+        let param = [
+            "userId": CustomUserDefaults.UserId ?? "",
+            "chatRoomType": "SESSION",
+            "pagination": [
+                "pageNo": 1,
+                "limit": 100,
+            ]] as [String: Any]
+        DataManager.sharedInstance().fetchSessions(parameter: param) { [self] error, response in
+            DispatchQueue.main.async { [self] in
+                progressValue = 0.15
+                chatsProgressBar.progress = progressValue
+                if let error = error {
+                    loadingTimer.invalidate()
+                    showErrorAlert()
+                } else {
+                    SessionDao.saveOrUpdateSessions(sessions: response?.getSessions() ?? [] )
+                }
+                if Utils.isStudent {
+                    fetchOffersServerCall()
+                } else {
+                    fetchWorksServiceCall()
+                }
+                
+            }
+        }
+    }
+    
+    /// Fetch Notes Service Call.
+    func fetchWorksServiceCall() {
+        chatsLb.text = "Loading your Works..."
+        let start = Date()
+        let param = ["userId": CustomUserDefaults.UserId ?? "",
+                     "search": "",
+                     "pagination": [
+                        "pageNo": 1,
+                        "limit": 30]] as [String: Any]
+        DataManager.sharedInstance().fetchWorks(parameter: param) { [self] error, response in
+            DispatchQueue.main.async { [self] in
+                progressValue =  0.18
+                chatsProgressBar.progress = progressValue
+                if let error = error {
+                    loadingTimer.invalidate()
+                    showErrorAlert()
+                } else {
+//                    WorkDao.saveOrUpdateWorks(works: response?.realmWorkList ?? [])
+                }
+                fetchAnnouncement()
+            }
+        }
+    }
+    
+    /// Fetch offers Api
+    func fetchOffersServerCall() {
+        chatsLb.text = "Loading your Offers..."
+        let start = Date()
+        let param = ["userId": CustomUserDefaults.UserId ?? "",
+                     "pagination": [
+                        "pageNo": 1,
+                        "limit": 100,
+                     ]] as [String: Any]
+        DataManager.sharedInstance().fetchOffers(parameter: param) { [self] error, response in
+            progressValue = 0.20
+            chatsProgressBar.progress = progressValue
+            DispatchQueue.main.async { [self] in
+                if let error = error {
+                    loadingTimer.invalidate()
+                    showErrorAlert()
+                } else {
+                    OfferDao.saveOrUpdateOffers(offers: response?.realmOffer ?? [])
+                }
+                fetchWorksServiceCall()
+            }
+        }
+    }
+    
+    func fetchChatGroupService() {
+        guard !chatListIsLast else {
+            let chatGroup = ChatGroupDao.fetchChatGroups()
+            for sessionId in chatGroup {
+                if let id = sessionId.session?.id {
+                    sessionIds.append(id)
+                }
+            }
+            setup()
+            //            fetchallmessageCount()
+            return
+        }
+        chatsLb.text = "Loading your ChatList..."
+        let start = Date()
+        let param = ["userId": CustomUserDefaults.UserId ?? "",
+                     "pagination": [
+                        "pageNo": chatListPageNumber,
+                        "limit": chatListLimit]] as [String: Any]
+        DataManager.sharedInstance().fetchChatGroupListDetails(parameter: param) { [self] error, response in
+            DispatchQueue.main.async { [self] in
+                if let error = error {
+                    loadingTimer.invalidate()
+                    showErrorAlert()
+                } else {
+                    progressValue += 0.004
+                    chatsProgressBar.progress = progressValue
+                    let chatListDatas = response?.getChatGroups() ?? []
+                    ChatGroupDao.saveOrUpdateSplashChatGroup(chatGroups: chatListDatas)
+                    self.chatListPageNumber += 1
+                    if chatListDatas.count == 0 {
+                        self.chatListIsLast = true
+                    }
+                    fetchChatGroupService()
+                }
+            }
+        }
+    }
+    
+    func fetchTutorAdminGroupListServiceCall() {
+        guard !chatListIsLast else {
+            let session = SessionDao.fetchSessions(onlySession: false)
+            for sessionId in session {
+                if let id = sessionId.id {
+                    sessionIds.append(id)
+                }
+            }
+            setup()
+            return
+        }
+        chatsLb.text = "Loading your ChatList..."
+        let start = Date()
+        let param = [
+            "userId": CustomUserDefaults.UserId ?? "",
+            "chatRoomType": "CHAT_GROUP",
+            "pagination": [
+                "pageNo": chatListPageNumber,
+                "limit": chatListLimit,
+            ]] as [String: Any]
+        DataManager.sharedInstance().fetchSessions(parameter: param) { [self] error, response in
+            DispatchQueue.main.async { [self] in
+                if let error = error {
+                    loadingTimer.invalidate()
+                    showErrorAlert()
+                } else {
+                    let chatListDatas = response?.getSessions() ?? []
+                    SessionDao.saveOrUpdateSplashSessions(Sessions: chatListDatas)
+                    self.chatListPageNumber += 1
+                    if chatListDatas.count == 0 {
+                        self.chatListIsLast = true
+                    }
+                    fetchTutorAdminGroupListServiceCall()
+                }
+            }
+        }
+    }
+    
+    func fetchTutorServiceCall() {
+        chatsLb.text = "Loading your TutorList..."
+        let start = Date()
+        let param = ["role": "TUTOR",
+                     "search": "",
+                     "pagination": [
+                        "pageNo": 1,
+                        "limit": 100],
+                     "isDeleted": false] as [String: Any]
+        DataManager.sharedInstance().fetchTutorListDetails(parameter: param) { [self] error, response in
+            DispatchQueue.main.async { [self] in
+                progressValue = 0.45
+                chatsProgressBar.progress = progressValue
+                if let error = error {
+                    loadingTimer.invalidate()
+                    showErrorAlert()
+                } else {
+                    UserDao.saveOrUpdateUsers(users: response?.tutorListDetails ?? [])
+                }
+                fetchTutorAdminGroupListServiceCall()
+            }
+        }
+    }
+    
+    func fetchGroupServiceCall() {
+        if user?.role != "SUPER_ADMIN" {
+            progressValue = 0.32
+        }
+        guard !groupIsLast else {
+            if Utils.isStudent {
+                progressValue = 0.50
+                chatsProgressBar.progress = progressValue
+                fetchChatGroupService()
+            } else if Utils.isTutor {
+                fetchTutorAdminGroupListServiceCall()
+            } else {
+                fetchTutorServiceCall()
+            }
+            return
+        }
+        chatsLb.text = "Loading your groups..."
+        let param = ["userId": CustomUserDefaults.UserId ?? "",
+                     "search": "",
+                     "pagination": [
+                        "pageNo": groupPageNumber,
+                        "limit": groupLimit]] as [String: Any]
+        DataManager.sharedInstance().fetchGroupService(parameter: param) { error, response in
+            DispatchQueue.main.async { [self] in
+                if error != nil {
+                    loadingTimer.invalidate()
+                    showErrorAlert()
+                } else {
+                    progressValue += 0.004
+                    chatsProgressBar.progress = progressValue
+                    let datas = response?.realmGroups ?? []
+                    SessionDao.saveOrUpdateSessions(serverSessions: datas)
+                    self.groupPageNumber += 1
+                    if datas.count == 0 {
+                        self.groupIsLast = true
+                    }
+                    fetchGroupServiceCall()
+                }
+                
+            }
+        }
+    }
+    
+    func fetchAnnouncement() {
+//        if CustomUserDefaults.UserRole == "SUPER_ADMIN" || CustomUserDefaults.UserRole == "STUDENT" {
+//        let param = [
+//            "userId": CustomUserDefaults.UserId ?? ""
+//        ] as [String: Any]
+//        DispatchQueue.global(qos: .userInitiated).async {  [self] in
+//            DataManager.sharedInstance().fetchAnnouncement(parameter: param) { error, response in
+//                progressValue =  0.23
+//                chatsProgressBar.progress = progressValue
+//                DispatchQueue.main.async { [self] in
+//                    if let error = error {
+//                        loadingTimer.invalidate()
+//                        showErrorAlert()
+//                    } else {
+//                        let data = response?.announcement
+//                        if Utils.isStudent {
+//                            let chatGroup = ChatGroup()
+//                            chatGroup.name = data?.name
+//                            chatGroup.id = "12134423423"
+//                            chatGroup.session = data
+//                            var chatgroups = [ChatGroup]()
+//                            chatgroups.append(chatGroup)
+//                            ChatGroupDao.saveOrUpdateChatGroups(serverChatGroups: chatgroups)
+//                        } else {
+//                            var sessions = [RealmSession]()
+//                            sessions.append(data ?? RealmSession())
+//                            SessionDao.saveOrUpdateSessions(serverSessions: sessions)
+//                        }
+//                        fetchGroupServiceCall()
+//                    }
+//                }
+//            }
+//        }
+//        } else {
+//            fetchGroupServiceCall()
+//        }
+        fetchGroupServiceCall()
+    }
+    
+    func setup() {
+        chatsLb.text = "Conversations"
+        chatsPercentageLb.text = "(100%)"
+        chatsProgressBar.progress = 1
+        chatsPercentageLb.isHidden = true
+        completedIV.isHidden = false
+        activityIndicatorV.isHidden = true
+        activityIndicatorV.stopAnimating()
+        messageLb.text = "Loading your Messages"
+        percentageLb.isHidden = false
+        isMessage = true
+        messageCount =  Float(countDownSeconds(rawValue: "size\(messageSize)")?.value ?? "0.1") ?? Float(0.1)
+        Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { [self] _ in
+            fetchUserDetailsServerCall()
+        }
+    }
+    
+    func showErrorAlert() {
+        let alertController = UIAlertController(title: "Error", message: "It seems something went worng. Please try to login again.", preferredStyle: .alert)
+        let OKAction = UIAlertAction(title: "Logout", style: .default) { (_: UIAlertAction!) in
+            Utils.logout()
+        }
+        alertController.addAction(OKAction)
+        self.present(alertController, animated: true, completion: nil)
+    }
+    
+}
+
