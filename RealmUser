@@ -1,0 +1,120 @@
+//
+//  RealmUser.swift
+//  LiveSessions
+//
+//  Created by Apzzo on 04/07/22.
+//
+
+import Foundation
+import ObjectMapper
+import ObjectMapperAdditions
+import RealmSwift
+
+class RealmUser: Object, Mappable {
+    @Persisted var token: String? = ""
+    @Persisted(primaryKey: true) var id: String? = ""
+    @Persisted var email: String = ""
+    @Persisted var isVerified: String? = "0"
+    @Persisted var mobile: String? = ""
+    @Persisted var phoneNumber: String? = ""
+    @Persisted var phoneCode: String? = ""
+    @Persisted var createdTs: String? = ""
+    @Persisted var updatedTs: String? = ""
+    @Persisted var userName: String? = ""
+    @Persisted var deviceId: String? = ""
+    @Persisted var balance: Double? = 0.0
+    @Persisted var referralCode: String? = ""
+    @Persisted var isEmailVerified: Bool? = false
+    @Persisted var isPhoneVerified: Bool? = false
+    @Persisted var isNewUser: Bool? = false
+    @Persisted var isSelected = false
+    @Persisted var password: String? = ""
+    @Persisted var isEmail: String? = "false"
+    @Persisted var name: String? = ""
+    @Persisted var phoneNo: String? = ""
+    @Persisted var iOSVersion: String? = ""
+    @Persisted var role: String? = ""
+    @Persisted var countryCode: String? = ""
+    @Persisted var pinSessionIds: List<String>
+    @Persisted var unreadSessionIds: List<String>
+    @Persisted var unreadGroupIds: List<String>
+    @Persisted var pinChatGroupIds: List<String>
+    @Persisted var pinGroupIds: List<String>
+    @Persisted var unreadChatGroupIds: List<String>
+    @Persisted var allPinnedSessionIds: List<String>
+    @Persisted var backgroundColor: String? = ""
+    @Persisted var zohoBillingAddressId: String? = ""
+    @Persisted var billingAddress: BillingAddress? = nil
+    @Persisted var whatsAppBonus: Double? = 0.0
+    @Persisted var emailBonus: Double? = 0.0
+    @Persisted var referralBonus: Double? = 0.0
+
+    required convenience init?(map: ObjectMapper.Map) { self.init() }
+    
+    var getRole: String {
+        return Role(rawValue: role?.uppercased() ?? "")?.name ?? ""
+    }
+    var getallPinnedSessionIds: [String] { return Array(allPinnedSessionIds) }
+    var getPinnedSessionIds: [String] { return Array(pinSessionIds) }
+
+    var getUnreadChatGroupIds: [String] { return Array(unreadChatGroupIds) }
+
+    func mapping(map: ObjectMapper.Map) {
+        id <- (map["_id"], StringTransform())
+        isVerified <- (map["isVerified"], StringTransform())
+        email <- (map["email"], StringTransform())
+        name <- (map["name"], StringTransform())
+        userName <- (map["userName"], StringTransform())
+        deviceId <- (map["deviceId"], StringTransform())
+        role <- (map["role"], StringTransform())
+        phoneNo <- (map["phoneNo"], StringTransform())
+        balance <- (map["balance"], DoubleTransform())
+        whatsAppBonus <- (map["whatsAppBonus"], DoubleTransform())
+        emailBonus <- (map["emailBonus"], DoubleTransform())
+        referralBonus <- (map["referralBonus"], DoubleTransform())
+        referralCode <- (map["referralCode"], StringTransform())
+        email <- (map["email"], StringTransform())
+        isEmailVerified <- (map["isEmailVerified"], BoolTransform())
+        isPhoneVerified <- (map["isPhoneVerified"], BoolTransform())
+        isNewUser <- (map["isNewUser"], BoolTransform())
+        iOSVersion <- (map["apiVersion.iosVersion"], StringTransform())
+        mobile <- (map["mobile"], StringTransform())
+        createdTs <- (map["createdTs"], StringTransform())
+        zohoBillingAddressId <- (map["zohoBillingAddressId"], StringTransform())
+        updatedTs <- (map["updatedTs"], StringTransform())
+        token <- (map["token"], StringTransform())
+        billingAddress <- map["billingAddress"]
+        pinSessionIds <- (map["pinSessionIds"], RealmTypeCastTransform<String>())
+        unreadSessionIds <- (map["unreadSessionIds"], RealmTypeCastTransform<String>())
+        unreadGroupIds <- (map["unreadGroupIds"], RealmTypeCastTransform<String>())
+        pinChatGroupIds <- (map["pinChatGroupIds"], RealmTypeCastTransform<String>())
+        allPinnedSessionIds <- (map["allPinnedSessionIds"], RealmTypeCastTransform<String>())
+        pinGroupIds <- (map["pinGroupIds"], RealmTypeCastTransform<String>())
+        unreadChatGroupIds <- (map["unreadChatGroupIds"], RealmTypeCastTransform<String>())
+        countryCode <- (map["countryCode"], StringTransform())
+        phoneCode <- (map["phoneCountryCode"], StringTransform())
+    }
+}
+
+
+class BillingAddress: Object, Mappable {
+    @Persisted var fullName = ""
+    @Persisted var addressLine1 = ""
+    @Persisted var addressLine2 = ""
+    @Persisted var city = ""
+    @Persisted var state = ""
+    @Persisted var zipCode = ""
+    @Persisted var country = ""
+
+    required convenience init?(map: ObjectMapper.Map) { self.init() }
+
+    func mapping(map: ObjectMapper.Map) {
+        fullName <- (map["fullName"], StringTransform())
+        addressLine1 <- (map["addressLine1"], StringTransform())
+        addressLine2 <- (map["addressLine2"], StringTransform())
+        city <- (map["city"], StringTransform())
+        state <- (map["state"], StringTransform())
+        zipCode <- (map["zipCode"], StringTransform())
+        country <- (map["country"], StringTransform())
+    }
+}
