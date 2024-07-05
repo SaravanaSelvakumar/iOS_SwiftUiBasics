@@ -1,0 +1,154 @@
+//
+//  Constants.swift
+//  Togbok
+//
+//  Created by Sakthi Kumar on 12/10/18.
+//  Copyright © 2018 Sakthikumar. All rights reserved.
+//
+
+import UIKit
+
+#if ECADEMICTUBE_DEV
+let BUCKET_NAME = "ecademictube-dev"
+let BUCKET_BASE_URL = "https://ecademictube-dev.s3.ap-south-1.amazonaws.com/"
+//let BASE_URL = "https://api-dev.ecademictube.com/api/" // DEV SERVER
+let BASE_URL = "http://13.234.106.109:3000/api/" // DEV SERVER
+let SUPER_ADMIN_ID = "61790955b79516bb9a9ed722"
+let ENV = "PROD" //DEV for simulator
+#elseif ECADEMICTUBE_QA
+let BUCKET_NAME = "ecademictube-qa"
+let BASE_URL =  "http://43.205.213.105:3000/api/" // QA SERVER
+let SUPER_ADMIN_ID = "61790955b79516bb9a9ed722"
+#else
+let BUCKET_NAME = "ecademictube-prod"
+let BUCKET_BASE_URL = "https://ecademictube-prod.s3.ap-south-1.amazonaws.com/"
+let BASE_URL = "https://app-api.ecademictube.com/api/" // PROD SERVER
+let SUPER_ADMIN_ID = "61790955b79516bb9a9ed722"
+let ENV = "PROD"
+#endif
+
+let DATADOG_TOKEN = "pub06102adbecdb882232c96ad02dfb4f29"
+
+let BASE_POST_IMAGE_URL = BASE_URL + "Uploads/Feeds/"
+let BASE_USER_IMAGE_URL = BASE_URL + "Uploads/User/"
+
+let REGISTRATION_URL = "Signup"
+let LOGIN_URL = "Login"
+let EMAIL_PROJECT  = "projects@ecademictube.com"
+let GET_ONBOARD_URL = "Onboard"
+let CHECK_MOBILE_EXIST_URL = "Signup/checkMobileExist"
+let CHECK_EMAIL_EXIST_URL = "Signup/checkEmailExist"
+let CREATE_POST_URL = "Post/postSave"
+let EDIT_POST_URL = "Post/postEditSave"
+let DELETE_POST_URL = "Post/postDelete"
+let EDIT_POST_PRIVACY_URL = "Post/editPostPrivacy"
+let EDIT_POST_WITHOUT_MULTIMEDIA_URL = "Post/postEditSaveWithoutMultimedia"
+let GET_FEEDS_LIST_URL = "Post"
+let GET_PROFILE_FEEDS_LIST_URL = "Post/getProfileTimeLine"
+let GET_POST_COUNTS_URL = "Post/getLikeShareCommentCounts"
+let POST_LIKE_URL = "PostLike/LikeStatus"
+let BIOTEXT_UPDATE_URL = "User/updateBioText"
+let UPDATE_USER_URL = "User/Profile_update"
+let USER_CONTACT_UPDATE_URL = "User/Profile_contact_update"
+let FRIEND_RQUEST_LIST_URL = "User/Request_list"
+let ALERTS_LIST_URL = "Alert/getAlertList"
+let ALERTS_UPDATES_URL = "Alert/setAlertReadStatus"
+let FRIEND_RQUEST_COUNT_LIST_URL = "Common/getAllMobileCount"
+let FOLLERS_LIST_URL = "User/Followers_list"
+let LIKED_USERS_LIST_URL = "User/LikedUser_list"
+let SHARED_USERS_LIST_URL = "User/SharedUser_list"
+let RESUME_SEARCH_LIST_URL = "Resume/SearchEmployee"
+let FRIEND_RQUEST_ACCEPT_URL = "User/Request_accept"
+let FRIEND_RQUEST_REJECT_URL = "User/Request_reject"
+let FRIEND_RQUEST_CANCEL_URL = "User/Request_cancel"
+let SEND_FRIEND_RQUEST_URL = "User/Request"
+let CHECK_FRIENDS_CONNECTED_URL = "User/checkFriendsConnected"
+let UNFRIEND_URL = "User/Unfriend"
+let UNFRIEND_USER_IDS_URL = "User/UnfriendUserIds"
+let REMOVE_USER_IMAGE_URL = "User/Remove_User_Image"
+let REMOVE_USER_BANNER_IMAGE_URL = "User/RemoveUserBannerImage"
+let GET_EMPLOYER_FEATURE_URL = "EmployerFeature"
+let GET_EMPLOYEE_FEATURE_URL = "EmployeeFeature"
+let GET_EMPLOYEE_FEE_URL = "EmployeeFees"
+let GET_EMPLOYER_FEE_URL = "EmployerFees"
+let COMPANY_SAVE_URL = "Company/Company_save"
+let RESUME_SAVE_URL = "Resume/Resume_save"
+let RESUME_UPDATE_URL = "Resume/Resume_update"
+let JOB_SAVE_URL = "PostJob/Job_save"
+let POST_JOB_LIST_URL = "PostJob/PostedJobsList"
+let CHECK_RESUME_EXIST_URL = "Resume/checkResumeExist"
+let CHECK_COMPANY_EXIST_URL = "Company/checkCompanyExist"
+let SAVE_SUBSCRIPTION_URL = "Subscription/Subscription_save"
+let GET_SUBSCRIPTION_URL = "Subscription/getSubscriptionHistory"
+let USER_SEARCH_URL = "User/Search"
+let FORGOT_PASSWORD_URL = "User/forgotPassword"
+let CHECK_FORGOT_PASSWORD_URL = "User/checkForgotPassword"
+let SIGNUP_OPT_URL = "Signup/checkOTPVerification"
+let UPDATE_PASSWORD_URL = "User/updatePassword"
+let GET_FORGOT_PWD_OTP_URL = "User/getOTPCode"
+let GET_COMMENTS_URL = "Comment"
+let SAVE_COMMENTS_URL = "Comment/commentSave"
+let DELETE_COMMENTS_URL = "Comment/commentDelete"
+let UPDATE_COMMENTS_URL = "Comment/commentUpdate"
+let POST_SHARE_URL = "Post/postShare"
+let UPLOAD_USER_IMAGE_URL = "User/Profile_User_Image"
+let UPLOAD_USER_BANNER_IMAGE_URL = "User/Profile_User_BannerImage"
+let GET_USER_DETAILS_URL = "User/Profile"
+let GET_USER_PICTURES_URL = "User/getUserPictures"
+let GET_USER_VIDEOS_URL = "User/getUserVideos"
+let GET_JOB_CATEGORY_URL = "JobCategory"
+let COMPANY_UPDATE_URL = "Company/Company_update"
+let GET_COMPANY_URL = "Company"
+let GET_RESUME_URL = "Resume"
+let GET_BRAINTREE_TOKEN_URL = "Subscription/getToken"
+let SEND_PAYMENT_REQUEST_URL = "Subscription/sendPaymentDetails"
+let SEND_REPORT_TO_ADMIN_URL = "Signup/sendReport"
+let HIDE_USER_POST_URL = "Post/hideUserPost"
+let HIDE_USER_COMMENT_URL = "Comment/hideUserComment"
+let CONVERSATION_LIST_URL = "Conversation"
+let CREATE_CONVERSATION_URL = "Conversation/createConversation"
+let REMOVE_DEVICE_TOKEN_URL = "PushToken/deletePushToken"
+let MESSAGE_LIST_URL = "Message"
+let UPDATE_DEVICE_TOKEN_URL = "PushToken/updatePushToken"
+let GET_CONVERSATION_URL = "Conversation/getConversation"
+let GET_FRIEND_SUGGESTION_LIST_URL = "User/getSuggestedUsersList"
+
+// JSON FORMATTER ERROR MESSAGE
+let JSON_CONVERSION_ERROR = "Json conversion error found.";
+
+// STRIPE API KEYS
+let PUBLISHABLE_TEST_KEY = "pk_test_51K53AjSHYuPVtTQwEMWKSrHOYDpIYZW5OV84OJW2NHaOrVbwCtYr7ZNuPwxj8NL88M5dEZuhuuT6Nzm5nf6lrCkw00wc9Qr78N"
+let SECRET_TEST_KEY = "sk_test_51K53AjSHYuPVtTQwEIfEEd5kb2cD3iBnKI9pqwSRKRpQh8tC7Jvy5uRwvRX2Z8mlMniqm0SU8XAwQU5mJipMbsCI00Ru2x883H"
+
+let PUBLISHABLE_LIVE_KEY = "pk_live_51Lf0aaSHrPsGTyyFMsmhaK7CDbXVGhptaV36uRIlcojZcmbfPGKuhqcQwMkWvKhaH8oNCflNtKzzCjhiC7VxliOJ00QaJqgnuT"
+let SECRET_LIVE_KEY = "sk_live_AJ8Db3Ksu4vO2jcc61tU2Vlm"
+
+#if ECADEMICTUBE_PROD
+let STRIPE_PUBLISHABLE_KEY =  PUBLISHABLE_LIVE_KEY
+let STRIPE_SECRET_KEY =  SECRET_LIVE_KEY
+let RAZORPAY_KEY = RAZORPAY_PROD_KEY
+#else
+let STRIPE_PUBLISHABLE_KEY =  PUBLISHABLE_TEST_KEY
+let RAZORPAY_KEY = RAZORPAY_DEV_KEY
+let STRIPE_SECRET_KEY =  SECRET_TEST_KEY
+#endif
+
+// PRIVACY POLICY AND USER AGREEMENT
+let PRIVACY_POLICY_URL = BASE_URL + "User/privacyPolicy"
+let USER_AGREEMENT_URL = BASE_URL + "User/userAgreement"
+
+// AWS S3
+let IDENTITY_POOL_ID = "ap-south-1:5287be9b-3e58-4806-b1dd-efe371182b52"
+let AWSS3_ACCESS_KEY = ""
+let AWSS3_SECRET_KEY = ""
+
+// AWS S3
+let RAZORPAY_PROD_KEY = "rzp_live_RAG9LeQDHr1C7X"
+let RAZORPAY_DEV_KEY = "rzp_test_dzxUWTd5TWiOLz"
+
+// PAGE LIMIT CONSTANT
+let PAGE_LIMIT = 10
+
+// DEFAULT CHAT GROUP ID
+let DEFAULT_CHAT_GROUP_ID = "61e804bac3d7d0ddab0ce186"
+
