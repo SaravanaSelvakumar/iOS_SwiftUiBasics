@@ -1,0 +1,260 @@
+//
+//  LoginViewController.swift
+//  LiveSessions
+//
+//  Created by Apzzo Technologies Private Limited on 05/07/21.
+//
+
+import UIKit
+
+class LoginTutorVC: BaseViewController {
+    static let name = "LoginTutorVC"
+    static let storyBoard = "LoginTutor"
+
+    /// The caller of this class does not need to know how we instantiate it.
+    /// We simply return the instantiated class to the caller and they invoke it how they want
+    /// If the as! fails, it will fail upon immediate testing
+    class func instantiateFromStoryboard() -> LoginTutorVC {
+        let vc = UIStoryboard(name: LoginTutorVC.storyBoard, bundle: nil).instantiateViewController(withIdentifier: LoginTutorVC.name) as! LoginTutorVC
+        return vc
+    }
+
+    // MARK: - IBOutlet Declaration
+
+    @IBOutlet var emailTextField: LiveSessionTextField!
+    @IBOutlet var backArrowIV: UIImageView!
+
+    @IBOutlet var adminL: UILabel!
+    @IBOutlet var passwordTextField: LiveSessionTextField!
+    @IBOutlet var submitBtn: UIButton!
+
+    // MARK: - Override Functions
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        
+//       #if ECADEMICTUBE_DEV
+//        emailTextField.text = "ca22@mailinator.com"
+//        passwordTextField.text = "12345678"
+//        #endif
+
+//        emailTextField.text = "surya1@apzzo.com"
+//        passwordTextField.text = "123456789"
+#if ECADEMICTUBE_DEV
+        emailTextField.text = "vinay2@gmail.com"
+        passwordTextField.text = "123456"
+//#else
+//        emailTextField.text = "vvkss27@gmail.com"
+//        passwordTextField.text = "AvvI_**#ei2Pq0"
+#endif
+
+//        emailTextField.text = "admin@gmail.com"
+//        passwordTextField.text = "y,a567@54,j"
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        Utils.isAuthentication = true
+        Utils.isErrorMessageAllowed = true
+        UIApplication.shared.unregisterForRemoteNotifications()
+        setupViews()
+        Utils.messageSound = false
+        UIApplication.shared.statusBarStyle = .darkContent
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+           super.viewWillDisappear(animated)
+           Utils.isErrorMessageAllowed = false
+       }
+
+    
+    // MARK: - IBAction Methods
+
+    /// Action SignUp - It will take user to Sign Up Password Screen
+    /// - Parameter _sender: sender(UIButton)
+    @IBAction func actionOnSendOtp(_sender: UIButton) {
+        if let errorMessage = validation() {
+            Utils.showAlert(message: errorMessage, viewController: self)
+        } else {
+            loginUserServerCall()
+        }
+    }
+
+    /// Action Back - It will take user to Previous Screen
+    /// - Parameter _sender: sender(UIButton)
+    @IBAction func acttionOnBack(_sender: UIButton) {
+        navigationController?.popViewController(animated: false)
+    }
+
+    // MARK: - Supporting Functions
+
+    /// It is enhanced to the user Interface
+    func setupViews() {
+        setUpSmallTitle(title: "Login")
+        navigationController?.navigationBar.barTintColor = UIColor.white
+        navigationController?.navigationBar.titleTextAttributes = [NSAttributedString.Key.foregroundColor: UIColor.black]
+        setNavigationBackBtn()
+        submitBtn.setTitle("Login", for: .normal)
+    }
+
+    /// It will validate and showing alert to users
+    /// - Returns: Bool
+    func validation() -> String? {
+        if emailTextField.text!.isEmpty {
+            return "Please enter your email address"
+        } else if !Utils.isValidEmail(emailId: emailTextField.text!) {
+            return "Please enter valid email address"
+        } else if passwordTextField.text!.isEmpty {
+            return "Please enter your password"
+        }
+        return nil
+    }
+}
+
+extension LoginTutorVC: UITextFieldDelegate {
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        textField.resignFirstResponder()
+        return true
+    }
+}
+
+extension LoginTutorVC {
+    /// Login API Service Call.
+    func loginUserServerCall() {
+        view.endEditing(true)
+        let start = Date()
+        Utils.showHUD(view: view)
+        let param = ["email": emailTextField.text!,
+                     "deviceId": UIDevice.current.identifierForVendor!.uuidString,
+                     "password": passwordTextField.text!]
+        DataManager.sharedInstance().loginUser(parameter: param) { error, response in
+            DispatchQueue.main.async {
+                Utils.hideHUD(view: self.view)
+                if let error = error {
+                    Utils.showAlert(message: error.localizedDescription, viewController: self)
+//                } else if let role = response?.user?.role, role == "SUPER_ADMIN" {
+//                    Utils.showAlert(message: "You cannot login with Super admin credentials. Please use web application for super admin.", viewController: self)
+                } else {
+                    if let response = response {
+                        CustomUserDefaults.setAccountType(type: AccountType(rawValue: (response.realmUser?.role)!) ?? .CHAT_ADMIN)
+                        CustomUserDefaults.UserId =  response.realmUser?.id
+                        UserDao.saveOrUpdateUser(user: response.realmUser ?? RealmUser())
+                        CustomUserDefaults.UserName =   response.realmUser?.name?.isEmpty ?? false ? response.realmUser?.userName : response.realmUser?.name 
+                        CustomUserDefaults.UserRole = response.realmUser?.role
+                       if CustomUserDefaults.UserRole == "TUTOR" {
+                            CustomUserDefaults.AccessToken = response.token
+                            CustomUserDefaults.baseUrl = BASE_URL
+                           CustomUserDefaults.bucketBaseUrl = BUCKET_BASE_URL
+                            SocketIOManager.connectSocket()
+                            let nextVC = SplashViewController.instantiateFromStoryboard()
+                            nextVC.isFromOtp = true
+                            self.navigationController?.pushViewController(nextVC, animated: true)
+                        } else {
+                            let otpVerificationVC = OtpVerficationViewController.instantiateFromStoryboard()
+                            otpVerificationVC.userId = response.user?.id ?? ""
+                            otpVerificationVC.emailId = response.user?.email ?? ""
+                            self.navigationController?.pushViewController(otpVerificationVC, animated: true)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    func loginTutorServerCall() {
+        view.endEditing(true)
+        Utils.showHUD(view: view)
+        let start = Date()
+        let param = ["email": emailTextField.text!,
+                     "password": passwordTextField.text!]
+        DataManager.sharedInstance().loginTutor(parameter: param) { error, response in
+            DispatchQueue.main.async {
+                Utils.hideHUD(view: self.view)
+                if let error = error {
+                    if error.localizedDescription == "Email address not verified" {
+                        self.showErrorAlert()
+                    } else if error.localizedDescription == "Password is incorrect." {
+                        self.wrongPasswordAlert()
+                    } else if error.localizedDescription == "User not found" {
+                        self.userNotAlert()
+                    } else {
+                        Utils.showAlert(message: error.localizedDescription, viewController: self)
+                    }
+                } else {
+                    if let response = response, let user = response.realmUser, !(user.id?.isEmpty ?? false), !(user.token?.isEmpty ?? false) {
+                        CustomUserDefaults.setAccountType(type: AccountType(rawValue: (response.realmUser?.role)!) ?? .CHAT_ADMIN)
+                        CustomUserDefaults.UserName = response.realmUser?.name?.isEmpty ?? false ? response.realmUser?.userName : response.realmUser?.name 
+                        CustomUserDefaults.UserRole = response.realmUser?.role
+                        CustomUserDefaults.UserId = response.realmUser?.id
+                        UserDao.saveOrUpdateUser(user: response.realmUser ?? RealmUser())
+                        SocketIOManager.connectSocket()
+                        CustomUserDefaults.AccessToken = user.token
+                        CustomUserDefaults.baseUrl = BASE_URL
+                        CustomUserDefaults.bucketBaseUrl = BUCKET_BASE_URL
+                        let nextVC = SplashViewController.instantiateFromStoryboard()
+                        nextVC.isFromOtp = true
+                        self.navigationController?.pushViewController(nextVC, animated: true)
+                    } else {
+                        Utils.showAlert(message: "Sorry not able to get user details. Please try again after some time.", viewController: self)
+                    }
+                }
+            }
+        }
+    }
+
+    /// Send OTP API Service Call.
+    func sendOTPServerCall() {
+        view.endEditing(true)
+        let start = Date()
+        Utils.showHUD(view: view)
+        let param = ["email": emailTextField.text!,
+                     "otpType": "TUTOR_LOGIN_OTP_CODE"] as [String: Any]
+        DataManager.sharedInstance().sendOTP(parameter: param) { error, _ in
+            DispatchQueue.main.async {
+                Utils.hideHUD(view: self.view)
+                if let error = error {
+                    Utils.showAlert(message: error.localizedDescription, viewController: self)
+                } else {
+                    let verifyOTPVc = OtpVerficationViewController.instantiateFromStoryboard()
+                    verifyOTPVc.isFromTeacherLogin = true
+                    verifyOTPVc.emailId = self.emailTextField.text!
+                    self.navigationController?.pushViewController(verifyOTPVc, animated: true)
+                }
+            }
+        }
+    }
+
+    func showErrorAlert() {
+        let alertController = UIAlertController(title: "", message: "It seems you are not yet verified your email address. Please verify your email address and continue.", preferredStyle: .alert)
+        alertController.addAction(UIAlertAction(title: "Cancel", style: .default) { (_: UIAlertAction!) in })
+        alertController.addAction(UIAlertAction(title: "Verify", style: .default) { (_: UIAlertAction!) in
+            let vC = OtpVerficationViewController.instantiateFromStoryboard()
+            vC.emailId = self.emailTextField.text!
+            vC.isFromSignUp = true
+            self.navigationController?.pushViewController(vC, animated: true)
+        })
+        present(alertController, animated: true, completion: nil)
+    }
+
+    func wrongPasswordAlert() {
+        let alertController = UIAlertController(title: "Incorret password", message: "Please enter a valid password to sign in.", preferredStyle: .alert)
+        alertController.addAction(UIAlertAction(title: "Forgot password", style: .default) { (_: UIAlertAction!) in
+            let forgetPasswordVC = ForgetPasswordViewController.instantiateFromStoryboard()
+            forgetPasswordVC.emailAddress = self.emailTextField.text!
+            forgetPasswordVC.isForgetVC = true
+            self.navigationController?.pushViewController(forgetPasswordVC, animated: true)
+        })
+        alertController.addAction(UIAlertAction(title: "Try again", style: .default) { (_: UIAlertAction!) in })
+        present(alertController, animated: true, completion: nil)
+    }
+
+    func userNotAlert() {
+        let alertController = UIAlertController(title: "User unavailable", message: "Please enter a valid email address or sign-in as a new user", preferredStyle: .alert)
+        alertController.addAction(UIAlertAction(title: "Sign-in password", style: .default) { (_: UIAlertAction!) in
+            let signinVC = SignUpViewController.instantiateFromStoryboard()
+            self.navigationController?.pushViewController(signinVC, animated: true)
+        })
+        alertController.addAction(UIAlertAction(title: "Try again", style: .default) { (_: UIAlertAction!) in })
+        present(alertController, animated: true, completion: nil)
+    }
+}
