@@ -1,0 +1,384 @@
+//
+//  StudentLoginVC.swift
+//  LiveSessions
+//
+//  Created by Apzzo Technologies on 07/03/24.
+//
+
+import RealmSwift
+import UIKit
+
+class StudentLoginVC: BaseViewController {
+    static let name = "StudentLoginVC"
+    static let storyBoard = "StudentLogin"
+    
+    /// The caller of this class does not need to know how we instantiate it.
+    /// We simply return the instantiated class to the caller and they invoke it how they want
+    /// If the as! fails, it will fail upon immediate testing
+    class func instantiateFromStoryboard() -> StudentLoginVC {
+        let vc = UIStoryboard(name: StudentLoginVC.storyBoard, bundle: nil).instantiateViewController(withIdentifier: StudentLoginVC.name) as! StudentLoginVC
+        return vc
+    }
+    
+    @IBOutlet var whatsAppView: UIView!
+    @IBOutlet var emailView: UIView!
+    @IBOutlet var whatsAppSegV: UIView!
+    @IBOutlet var emailSegV: UIView!
+    @IBOutlet var phoneNumberTextField: UITextField!
+    @IBOutlet var emailTextField: LiveSessionTextField!
+    @IBOutlet var referralTextField: LiveSessionTextField!
+    @IBOutlet var otpTextField: LiveSessionTextField!
+    @IBOutlet var checkboxIV: UIImageView!
+    @IBOutlet var radiusView: [UIView]!
+    @IBOutlet var referalV: UIView!
+    @IBOutlet var whatsAppVerifyLable: UILabel!
+    @IBOutlet var emailVerifyLable: UILabel!
+    @IBOutlet var countryCodeL: UILabel!
+    @IBOutlet var resendTimerL: UILabel!
+    @IBOutlet var timerContentL: UILabel!
+    
+    let countryPicker = MRCountryPicker()
+    var loginUserDetails = LoginUserDetails()
+    let phoneCountryTextField = UITextField()
+    var blurEffectView: UIVisualEffectView?
+    var backgroundTime = Date().timeIntervalSince1970
+    var isFromSecondUpdate = false
+    var isNewUser = false
+    var isRefered = false
+    let userData = UserDao.fetchUserUsingId(id: CustomUserDefaults.UserId ?? "")
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        setupViews()
+        navigationController?.isNavigationBarHidden = true
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(true)
+        Utils.loginTimer?.invalidate()
+        Utils.loginTimer = nil
+        OTPtimer()
+        referalV.isHidden = !isNewUser
+        NotificationCenter.default.addObserver(self, selector: #selector(LoginStudentVC.appEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(LoginStudentVC.appEnterIntoBackGorund), name: UIApplication.didEnterBackgroundNotification, object: nil)
+    }
+    
+    func setupViews() {
+        radiusView.forEach({ $0.setCornerRadius(radius: 8) })
+        whatsAppSegV.setCornerRadius(radius: 6)
+        emailSegV.setCornerRadius(radius: 6)
+        
+        if loginUserDetails.getSocialMediaType == .WHATSAPP {
+            whatsAppSegV.backgroundColor  = .white
+            emailSegV.backgroundColor     = .clear
+            whatsAppVerifyLable.textColor = UIColor(hexStr: "F05737")
+            emailVerifyLable.textColor    = UIColor(hexStr: "212B36")
+            whatsAppView.isHidden         = false
+            emailView.isHidden            = true
+            otpTextField.placeholder      = "Enter OTP received on WhatsApp"
+            phoneNumberTextField.text     = loginUserDetails.phoneNoText
+            countryCodeL.text             = loginUserDetails.phoneCode
+        } else {
+            whatsAppSegV.backgroundColor  = .clear
+            emailSegV.backgroundColor     = .white
+            emailVerifyLable.textColor    = UIColor(hexStr: "F05737")
+            whatsAppVerifyLable.textColor = UIColor(hexStr: "212B36")
+            whatsAppView.isHidden         = true
+            emailTextField.text           = loginUserDetails.email
+            emailView.isHidden            = false
+            otpTextField.placeholder      = "Enter OTP received on Email"
+        }
+        checkboxIV.image = UIImage(named: "black_uncheckbox")
+    }
+    
+    @objc func appEnterIntoBackGorund() {
+        backgroundTime = Date().timeIntervalSince1970
+    }
+    
+    @objc func appEnterForeground() {
+        Utils.loginTimeS = Utils.loginTimeS - Int(Date().timeIntervalSince1970 - (self.backgroundTime ))
+    }
+    
+    
+    @IBAction func acttionOnLogin(_sender: UIButton) {
+        if let error = loginValidaton() {
+            Utils.showAlert(message: error, viewController: self)
+        } else {
+            if loginUserDetails.getSocialMediaType == .WHATSAPP {
+                isFromSecondUpdate ? updateNewPhoneNo() : verifyWhatsAppLogin()
+            } else {
+                isFromSecondUpdate  ? updateNewEmail() : verifyEmailLogin()
+            }
+        }
+    }
+    
+    func loginValidaton() -> String? {
+        
+         if otpTextField.text!.isEmpty {
+            return "Please Your OTP Code"
+        } else if checkboxIV.image == UIImage(named: "circleImg") && !phoneNumberTextField.text!.isEmpty {
+            return "Please accept terms and privacy policy"
+        } else if checkboxIV.image == UIImage(named: "circleImg") && !emailTextField.text!.isEmpty && emailVerifyLable.text == "Login Via Email" {
+            return "Please accept terms and privacy policy"
+        }
+        return nil
+    }
+    
+    @IBAction func actionOnResendOtp(_ sender: UISegmentedControl) {
+        Utils.loginTimer?.invalidate()
+        Utils.loginTimer = nil
+        OTPtimer()
+        if loginUserDetails.getSocialMediaType == .WHATSAPP {
+            studentWhatsAppOtp()
+        } else {
+            sendEmailOtp()
+        }
+    }
+    
+    func OTPtimer() {
+        Utils.loginTimer = Timer.scheduledTimer(timeInterval: 1, target: self, selector: #selector(update), userInfo: nil, repeats: true)
+    }
+    
+    @objc func update() {
+        if Utils.loginTimeS > 0 {
+            Utils.loginTimeS = Utils.loginTimeS - 1
+            resendTimerL.text = Utils.convertSecondsToTime(seconds: Utils.loginTimeS)
+            timerContentL.text = "You can resend OTP in"
+        } else {
+            loginTimerExpired()
+        }
+    }
+    
+    func loginTimerExpired() {
+        Utils.loginTimer?.invalidate()
+        resendTimerL.text = "Resend code"
+        timerContentL.text = "Don’t have a code?"
+        Utils.loginTimeS = 120
+    }
+    
+    @IBAction func actionOnCheckbox(_ sender: UIButton) {
+        if checkboxIV.image == UIImage(named: "circleImg") {
+            checkboxIV.image = UIImage(named: "black_uncheckbox")
+        } else {
+            checkboxIV.image = UIImage(named: "circleImg")
+        }
+    }
+    
+    @IBAction func actionOnTerms(_ sender: UIButton) {
+        openSafariWebView(urlString: "https://www.ecademictube.com/terms-and-conditions")
+    }
+    
+    @IBAction func actionOnPrivacyIcon(_ sender: UIButton) {
+        let loginNewVC = LoginTutorVC.instantiateFromStoryboard()
+        navigationController?.pushViewController(loginNewVC, animated: true)
+    }
+    
+    @IBAction func actionOnPrivacy(_ sender: UIButton) {
+        openSafariWebView(urlString: "https://ecademictube.com/privacy-policy")
+    }
+    
+    @IBAction func actionOnBack() {
+        navigationController?.popViewController(animated: true)
+    }
+}
+
+extension StudentLoginVC {
+    /// Send Otp Service Call.
+    func studentWhatsAppOtp() {
+        view.endEditing(true)
+        Utils.showHUD(view: view)
+        let param = [
+            "phoneNo": "\(phoneNumberTextField.text!)",
+            "countryCode": "\(loginUserDetails.phoneCode)",
+            "countryName": "\(loginUserDetails.countryCode)"
+        ]
+        DataManager.sharedInstance().studentWhatsAppOtp(parameter: param) { error, response in
+            DispatchQueue.main.async { [self] in
+                Utils.hideHUD(view: self.view)
+                if let error = error {
+                    Utils.showAlert(message: error.localizedDescription, viewController: self)
+                } else {
+                    
+                }
+            }
+        }
+    }
+    
+    /// Login API Service Call.
+    func verifyWhatsAppLogin() {
+        Utils.showHUD(view: view)
+        var param = ["phoneNo": "\(loginUserDetails.phoneCode)" + "\(loginUserDetails.phoneNoText)",
+                     "otpCode": otpTextField.text!,
+                     "deviceId": UIDevice.current.identifierForVendor!.uuidString,
+                     "platform": "IOS",
+                     "role": "STUDENT"
+        ]
+        if !(referralTextField.text?.isEmpty ?? true) {
+            param["referralCode"] = referralTextField.text!
+        }
+        DataManager.sharedInstance().verifyWhatsApp(parameter: param) { error, response in
+            DispatchQueue.main.async { [self] in
+                Utils.hideHUD(view: self.view)
+                if let error = error {
+                    Utils.showAlert(message: error.localizedDescription, viewController: self)
+                } else if let response = response, !response.token.isEmpty {
+                    CustomUserDefaults.setAccountType(type: AccountType(rawValue: (response.realmUser?.role)!) ?? .CHAT_ADMIN)
+                    CustomUserDefaults.UserName = response.realmUser?.name?.isEmpty ?? false ? response.realmUser?.userName : response.realmUser?.name
+                    CustomUserDefaults.UserRole = response.realmUser?.role
+                    CustomUserDefaults.AccessToken = response.token
+                    CustomUserDefaults.baseUrl = BASE_URL
+                    CustomUserDefaults.phoneNumber = loginUserDetails.phoneNoText
+                    CustomUserDefaults.countryCode = loginUserDetails.countryCode
+                    CustomUserDefaults.UserId =  response.realmUser?.id
+                    UserDao.createUserForStudent(user: response.realmUser ?? RealmUser(), countryCode: loginUserDetails.countryCode)
+                    SocketIOManager.connectSocket()
+                    
+                    if response.realmUser?.isNewUser ?? false {
+                        let walletBalancePopUpVC = WalletBalancePopUpVC.instantiateFromStoryboard()
+                        walletBalancePopUpVC.loginUserDetails = loginUserDetails
+                        let navigationController = UINavigationController(rootViewController: walletBalancePopUpVC)
+                        navigationController.modalPresentationStyle = .overCurrentContext
+                        walletBalancePopUpVC.view.backgroundColor = UIColor.darkGray.withAlphaComponent(0.9)
+                        self.present(navigationController, animated: true, completion: nil)
+                    } else {
+                        let nextVC = SplashViewController.instantiateFromStoryboard()
+                        nextVC.isFromOtp = true
+                        self.navigationController?.pushViewController(nextVC, animated: true)
+                    }
+                    if CustomUserDefaults.CurrentDate == nil {
+                        CustomUserDefaults.CurrentDate = Date.getCurrentEmailVerificationDate()
+                    }
+                } else {
+                    Utils.showAlert(message: "Something went wrong. Please try again later.", viewController: self)
+                }
+            }
+        }
+    }
+    
+    func sendEmailOtp() {
+        view.endEditing(true)
+        Utils.showHUD(view: view)
+        let param = [
+            "email": "\(emailTextField.text!)"
+        ]
+        DataManager.sharedInstance().studentEmailOtp(parameter: param) { error, response in
+            DispatchQueue.main.async { [self] in
+                Utils.hideHUD(view: self.view)
+                if let error = error {
+                    Utils.showAlert(message: error.localizedDescription, viewController: self)
+                } else {
+                 
+                }
+            }
+        }
+    }
+    
+    func verifyEmailLogin() {
+        Utils.showHUD(view: view)
+        var param = ["email": "\(loginUserDetails.email)",
+                     "otpCode": otpTextField.text!,
+                     "deviceId": UIDevice.current.identifierForVendor!.uuidString,
+                     "platform": "IOS",
+                     "role": "STUDENT"
+        ]
+        if !(referralTextField.text?.isEmpty ?? true) {
+            param["referralCode"] = referralTextField.text!
+        }
+        DataManager.sharedInstance().verifyEmail(parameter: param) { error, response in
+            DispatchQueue.main.async { [self] in
+                Utils.hideHUD(view: self.view)
+                if let error = error {
+                    Utils.showAlert(message: error.localizedDescription, viewController: self)
+                }  else if let response = response, !response.token.isEmpty {
+                    CustomUserDefaults.setAccountType(type: AccountType(rawValue: (response.realmUser?.role)!) ?? .CHAT_ADMIN)
+                    CustomUserDefaults.UserName = response.realmUser?.name?.isEmpty ?? false ? response.realmUser?.userName : response.realmUser?.name
+                    CustomUserDefaults.UserRole = response.realmUser?.role
+                    CustomUserDefaults.AccessToken = response.token
+                    CustomUserDefaults.baseUrl = BASE_URL
+                    CustomUserDefaults.UserId =  response.realmUser?.id
+                    UserDao.createUserForStudent(user: response.realmUser ?? RealmUser(), countryCode: loginUserDetails.countryCode)
+                    SocketIOManager.connectSocket()
+                    
+                    if response.realmUser?.isNewUser ?? false {
+                        let walletBalancePopUpVC = WalletBalancePopUpVC.instantiateFromStoryboard()
+                        walletBalancePopUpVC.loginUserDetails = loginUserDetails
+                        let navigationController = UINavigationController(rootViewController: walletBalancePopUpVC)
+                        navigationController.modalPresentationStyle = .overCurrentContext
+                        walletBalancePopUpVC.view.backgroundColor = UIColor.darkGray.withAlphaComponent(0.9)
+                        self.present(navigationController, animated: true, completion: nil)
+                    } else {
+                        let nextVC = SplashViewController.instantiateFromStoryboard()
+                        nextVC.isFromOtp = true
+                        self.navigationController?.pushViewController(nextVC, animated: true)
+                    }
+                
+                    if CustomUserDefaults.CurrentDate == nil {
+                        CustomUserDefaults.CurrentDate = Date.getCurrentEmailVerificationDate()
+                    }
+                } else {
+                    Utils.showAlert(message: "Something went wrong. Please try again later.", viewController: self)
+                }
+            }
+        }
+    }
+    
+    func updateNewPhoneNo() {
+        view.endEditing(true)
+        Utils.showHUD(view: view)
+        let param = ["phoneNo": "\(loginUserDetails.phoneCode)" + "\(loginUserDetails.phoneNoText)",
+                     "otpCode": otpTextField.text!,
+                     "isNewUser": isNewUser,
+                     "userId": CustomUserDefaults.UserId ?? ""] as [String: Any]
+        DataManager.sharedInstance().updatePhoneNo(parameter: param) { error, _ in
+            DispatchQueue.main.async { [self] in
+                Utils.hideHUD(view: self.view)
+                if let error = error {
+                    Utils.showAlert(message: error.localizedDescription, viewController: self)
+                } else {
+                    if userData?.isPhoneVerified ?? false {
+                        let nextVC = SplashViewController.instantiateFromStoryboard()
+                        nextVC.isFromOtp = true
+                        self.navigationController?.pushViewController(nextVC, animated: true)
+                    } else {
+                        UserDao.saveOrUpdatePhoneNoEmail(user: userData ?? RealmUser(), email: userData?.email ?? "", phoneNo: "\(loginUserDetails.phoneCode)" + "\(loginUserDetails.phoneNoText)")
+                       let verifyStatusCheckingVC = VerifyStatusCheckingVC.instantiateFromStoryboard()
+                        verifyStatusCheckingVC.loginUserDetails = loginUserDetails
+                        verifyStatusCheckingVC.isPhoneVerify = true
+                        self.navigationController?.pushViewController(verifyStatusCheckingVC, animated: true)
+                    }
+                }
+            }
+        }
+    }
+    
+    func updateNewEmail() {
+        view.endEditing(true)
+        Utils.showHUD(view: view)
+        let param = ["email": emailTextField.text!,
+                     "otpCode": otpTextField.text!,
+                     "isNewUser": isNewUser,
+                     "userId": CustomUserDefaults.UserId ?? ""] as [String: Any]
+        DataManager.sharedInstance().verifyUpdateEmail(parameter: param) { error, _ in
+            DispatchQueue.main.async { [self] in
+                Utils.hideHUD(view: self.view)
+                if let error = error {
+                    Utils.showAlert(message: error.localizedDescription, viewController: self)
+                } else {
+                    if userData?.isEmailVerified ?? false {
+                        let nextVC = SplashViewController.instantiateFromStoryboard()
+                        nextVC.isFromOtp = true
+                        self.navigationController?.pushViewController(nextVC, animated: true)
+                    } else {
+                        UserDao.saveOrUpdatePhoneNoEmail(user: userData ?? RealmUser(), email: loginUserDetails.email, phoneNo: userData?.phoneNo ?? "")
+                        let verifyStatusCheckingVC = VerifyStatusCheckingVC.instantiateFromStoryboard()
+                        verifyStatusCheckingVC.loginUserDetails = loginUserDetails
+                        verifyStatusCheckingVC.isEmailVerify = true
+                        self.navigationController?.pushViewController(verifyStatusCheckingVC, animated: true)
+                    }
+                }
+            }
+        }
+    }
+}
+
+
