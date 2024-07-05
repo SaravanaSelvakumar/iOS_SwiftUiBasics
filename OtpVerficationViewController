@@ -1,0 +1,168 @@
+//
+//  OtpVerficationViewController.swift
+//  LiveSessions
+//
+//  Created by Apzzo Technologies Private Limited on 05/07/21.
+//
+
+import RealmSwift
+import UIKit
+
+class OtpVerficationViewController: BaseViewController {
+    static let name = "OtpVerficationViewController"
+    static let storyBoard = "OtpVerfication"
+    
+    /// The caller of this class does not need to know how we instantiate it.
+    /// We simply return the instantiated class to the caller and they invoke it how they want
+    /// If the as! fails, it will fail upon immediate testing
+    class func instantiateFromStoryboard() -> OtpVerficationViewController {
+        let vc = UIStoryboard(name: OtpVerficationViewController.storyBoard, bundle: nil).instantiateViewController(withIdentifier: OtpVerficationViewController.name) as! OtpVerficationViewController
+        return vc
+    }
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        Utils.isErrorMessageAllowed = true
+        Utils.isAuthentication = true
+        //
+        //        if !isForgetVC {
+        navigationController?.setNavigationBarHidden(true, animated: false)
+#if ECADEMICTUBE_DEV
+        otpTextField.text =  "2751903201"
+#endif
+        //        }
+        //        #endif
+        //        
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+           super.viewWillDisappear(animated)
+           Utils.isErrorMessageAllowed = false
+       }
+    
+    // MARK: - IBOutlet Declaration
+    
+    @IBOutlet var otpTextField: LiveSessionTextField!
+    
+    // MARK: - Variable Declaration
+    
+    var isFromSignUp = false
+    var isFromTeacherLogin = false
+    var emailId = ""
+    var userId = ""
+    var isForgetVC = false
+    
+    // MARK: - IBAction Methods
+    
+    /// Action Resend - It will take user to Reset Password Screen
+    /// - Parameter _sender: sender(UIButton)
+    @IBAction func actionOnResend(_sender: UIButton) {
+        resendOTPServerCall()
+    }
+    
+    /// Action Send Otp Code - It will take user to Inside the Application
+    /// - Parameter _sender: sender(UIButton)
+    @IBAction func actionOnLogin(_sender: UIButton) {
+        if otpTextField.text!.isEmpty {
+            Utils.showAlert(message: "Please enter your OTP.", viewController: self)
+        } else {
+            isForgetVC ? verifyUserServerCall() : emailVerificationSeriviceCall()
+        }
+    }
+    
+    /// Action Back - It will take user to Previous Screen
+    /// - Parameter _sender: sender(UIButton)
+    @IBAction func acttionOnBack(_sender: UIButton) {
+        navigationController?.popViewController(animated: true)
+    }
+}
+
+extension OtpVerficationViewController: UITextFieldDelegate {
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        textField.resignFirstResponder()
+        return true
+    }
+}
+
+extension OtpVerficationViewController {
+    /// Verify User API Service Call.
+    func verifyUserServerCall() {
+        view.endEditing(true)
+        let start = Date()
+        Utils.showHUD(view: view)
+        let user = UserDao.fetchUserUsingId(id: CustomUserDefaults.UserId ?? "")
+        let param = ["email": user?.email ?? "",
+                     "deviceId": UIDevice.current.identifierForVendor!.uuidString,
+                     "otpCode": otpTextField.text!] as [String: Any]
+        DataManager.sharedInstance().verifyUser(parameter: param) { error, response in
+            DispatchQueue.main.async {
+                Utils.hideHUD(view: self.view)
+                if let error = error {
+                    Utils.showAlert(message: error.localizedDescription, viewController: self)
+                } else if let response = response, !response.token.isEmpty {
+                    CustomUserDefaults.AccessToken = response.token
+                    CustomUserDefaults.baseUrl = BASE_URL
+                    CustomUserDefaults.bucketBaseUrl = BUCKET_BASE_URL
+                    //                    SocketIOManager.connectSocket()
+                    
+                    let nextVC = SplashViewController.instantiateFromStoryboard()
+                    nextVC.isFromOtp = true
+                    self.navigationController?.pushViewController(nextVC, animated: true)
+                } else {
+                    Utils.showAlert(message: "Sorry not able to get user details. Please try again after some time.", viewController: self)
+                }
+            }
+        }
+    }
+    
+    func emailVerificationSeriviceCall() {
+        view.endEditing(true)
+        let start = Date()
+        Utils.showHUD(view: view)
+        let param = ["userId": CustomUserDefaults.UserId ?? "",
+                     "email": emailId,
+                     "deviceId": UIDevice.current.identifierForVendor!.uuidString,
+                     "otpCode": otpTextField.text!] as [String: Any]
+        DataManager.sharedInstance().verifyUser(parameter: param) { error, response in
+            DispatchQueue.main.async { [self] in
+                Utils.hideHUD(view: self.view)
+                if let error = error {
+                    Utils.showAlert(message: error.localizedDescription, viewController: self)
+                } else if let response = response, !response.token.isEmpty {
+                    CustomUserDefaults.AccessToken = response.token
+                    CustomUserDefaults.baseUrl = BASE_URL
+                    CustomUserDefaults.bucketBaseUrl = BUCKET_BASE_URL
+                    //                    SocketIOManager.connectSocket()
+                    let user = UserDao.fetchUserUsingId(id: CustomUserDefaults.UserId ?? "")
+                    try! UserDao.realm.write {
+                        user?.email = emailId
+                    }
+                    CustomUserDefaults.IsEmailVerified =  true
+                    let nextVC = SplashViewController.instantiateFromStoryboard()
+                    nextVC.isFromOtp = true
+                    self.navigationController?.pushViewController(nextVC, animated: true)
+                } else {
+                    Utils.showAlert(message: "Sorry not able to get user details. Please try again after some time.", viewController: self)
+                }
+            }
+        }
+    }
+    
+    /// Resend OTP API Service Call.
+    func resendOTPServerCall() {
+        view.endEditing(true)
+        let start = Date()
+        Utils.showHUD(view: view)
+        let param = ["userId": userId]
+        DataManager.sharedInstance().sendOTP(parameter: param) { error, _ in
+            DispatchQueue.main.async {
+                Utils.hideHUD(view: self.view)
+                if let error = error {
+                    Utils.showAlert(message: error.localizedDescription, viewController: self)
+                } else {
+                    Utils.showAlert(message: "We have re-sent new OTP to your email address.", viewController: self)
+                }
+            }
+        }
+    }
+}
