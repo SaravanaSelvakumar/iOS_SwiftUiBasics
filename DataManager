@@ -1,0 +1,1533 @@
+//
+//  DataManager.swift
+//  LiveSessions
+//
+//  Created by Apzzo on 14/07/21.
+//
+
+import Alamofire
+import Foundation
+import ObjectMapper
+import SDWebImage
+
+class DataManager {
+    var jsonRes = [:] as [String: Any]
+
+    var alamofireManager: SessionManager
+    private static let _sharedInstance = DataManager()
+
+    static func sharedInstance() -> DataManager {
+        return _sharedInstance
+    }
+
+    init() {
+        let configuration: URLSessionConfiguration = {
+            let identifier = "ecademictube.background-session"
+            let configuration = URLSessionConfiguration.background(withIdentifier: identifier)
+            configuration.shouldUseExtendedBackgroundIdleMode = true
+            return configuration
+        }()
+        alamofireManager = SessionManager(configuration: configuration)
+    }
+
+    static func getHeader() -> [String: String] {
+        let headers = [
+            "Content-Type": "application/json",
+            "authorization": "Bearer " + (CustomUserDefaults.AccessToken ?? ""),
+        ]
+        return headers
+    }
+
+    func request(_ method: Alamofire.HTTPMethod, _ url: String, parameters: [String: Any]? = nil, useAuthorization: Bool = true,isAuth: Bool = false, completionHandler: @escaping (_ statusCode: Int?, _ error: Error?, _ result: [String: AnyObject]?) -> Void) {
+        guard Reachability.isConnectedToNetwork() else {
+            let error = AppError(errorString: "No Internet Connection. Make sure your device is connected to the internet.")
+            completionHandler(nil, error as Error, nil)
+            return
+        }
+        
+//        guard CustomUserDefaults.UserId != "" || isAuth else {
+//            Utils.showSessionInvalidAlert()
+//            return
+//        }
+
+        let fullUrl: URLConvertible = BASE_URL + url
+
+        print("-- -- -- -- -- -- -- -- -- -- --")
+        print("Url: \(fullUrl)")
+        print("Header: \(DataManager.getHeader())")
+        print("Param: \(parameters ?? [:])")
+        print("Method: \(method.rawValue)")
+        Utils.dataRequest =  DataManager.sharedInstance().alamofireManager.request(fullUrl, method: method, parameters: parameters, encoding: JSONEncoding.default, headers: DataManager.getHeader())
+            .validate()
+            .responseJSON { response in
+                print("IsSuccess: \(response.result.isSuccess)")
+                print("StatusCode: \(response.response?.statusCode ?? 0)")
+
+                switch response.result {
+                    case .success:
+                        if let value = response.result.value as? [String: AnyObject] {
+                            #if ECADEMICTUBE_DEV
+//                            print("Response: \(value)")
+                            #endif
+                            print("-- -- -- -- -- -- -- -- -- -- --")
+                            completionHandler(response.response?.statusCode, nil, value)
+                        } else {
+                            print("Response: NO RESPONSE FOUND")
+                            print("Response: \(String(describing: response.result.value))")
+                            print("-- -- -- -- -- -- -- -- -- -- --")
+                            let error = AppError(errorString: "NO RESPONSE FOUND")
+                            completionHandler(response.response?.statusCode, error as Error, nil)
+                        }
+                    case let .failure(error):
+                        guard let data = response.data,
+                              let jsonString = String(data: data, encoding: String.Encoding.utf8) else {
+                            print("Error: \(error.localizedDescription)")
+                            print("-- -- -- -- -- -- -- -- -- -- --")
+                            completionHandler(response.response?.statusCode, error, nil)
+                            return
+                        }
+
+                        if let basicResponse = Mapper<BasicResponse>().map(JSONString: jsonString) {
+                            print("Error: \(basicResponse.message)")
+                            print("-- -- -- -- -- -- -- -- -- -- --")
+                            let appError = AppError(errorString: basicResponse.message)
+                            completionHandler(response.response?.statusCode, appError, nil)
+                        } else if jsonString.contains("UnauthorizedError: invalid signature") || jsonString.contains("UnauthorizedError: jwt malformed") || jsonString.contains("UnauthorizedError: jwt expired") {
+                            DataManager.sharedInstance().getRefreshToken { error, results in
+                                DispatchQueue.main.async {
+                                    if error != nil {
+                                        Utils.showSessionInvalidAlert()
+                                    } else {
+                                        if let token = results?.refreshToken, !token.isEmpty {
+                                            CustomUserDefaults.AccessToken = token
+                                            DataManager.sharedInstance().request(method, url, parameters: parameters, useAuthorization: useAuthorization, completionHandler: completionHandler)
+                                        } else {
+                                            Utils.showSessionInvalidAlert()
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            guard  error.localizedDescription != "Lost connection to background transfer service"  else {
+                                if Utils.isAuthentication {
+                                    let error = AppError(errorString: "ERROR_INVALID")
+                                    completionHandler(response.response?.statusCode,error, nil)
+                                }
+                                    return }
+                            print("Error: \(error.localizedDescription)")
+                            print("-- -- -- -- -- -- -- -- -- -- --")
+                            if (error.localizedDescription == "Response status code was unacceptable: 504." || error.localizedDescription == "Response status code was unacceptable: 502.") && "\(SocketIOManager.socket.status)" != "connecting" && !Utils.isErrorMessageAllowed  {
+                                let error = AppError(errorString: "ERROR_INVALID")
+                                completionHandler(response.response?.statusCode,error, nil)
+                            } else {
+                                completionHandler(response.response?.statusCode, error, nil)
+                            }
+                            
+                        }
+                }
+            }
+      
+    }
+}
+
+extension DataManager {
+    func getRefreshToken(completionHandler: @escaping (_ error: Error?, _ response: RefreshTokenResponse?) -> Void) {
+        DataManager.sharedInstance().request(.get, EndPoint.refreshToken.rawValue + "/" + (CustomUserDefaults.UserId ?? ""), parameters: nil) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<RefreshTokenResponse>().map(JSON: result) {
+                    response.status.uppercased() != "SUCCESS" ? completionHandler(AppError(errorString: response.message), nil) : completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+        
+    func studentWhatsAppOtp(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: BaseResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.studentWhatsAppOtp.rawValue, parameters: parameter,isAuth: true) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<BaseResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+        
+        func studentEmailOtp(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: BaseResponse?) -> Void) {
+            DataManager.sharedInstance().request(.post, EndPoint.studentEmailOtp.rawValue, parameters: parameter,isAuth: true) { _, error, result in
+                if let error = error {
+                    completionHandler(error, nil)
+                } else {
+                    if let result = result, let response = Mapper<BaseResponse>().map(JSON: result) {
+                        completionHandler(nil, response)
+                    } else {
+                        let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                        completionHandler(error as Error, nil)
+                    }
+                }
+            }
+        }
+    
+    func updateEmailNoOtp(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: BaseResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.updateEmailNoOtp.rawValue, parameters: parameter,isAuth: true) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<BaseResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+    
+    func updatePhoneNoOtp(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: BaseResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.updatePhoneNoOtp.rawValue, parameters: parameter,isAuth: true) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<BaseResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+        
+        func updatePhoneNo(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: BaseResponse?) -> Void) {
+            DataManager.sharedInstance().request(.post, EndPoint.updatePhoneNo.rawValue, parameters: parameter,isAuth: true) { _, error, result in
+                if let error = error {
+                    completionHandler(error, nil)
+                } else {
+                    if let result = result, let response = Mapper<BaseResponse>().map(JSON: result) {
+                        completionHandler(nil, response)
+                    } else {
+                        let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                        completionHandler(error as Error, nil)
+                    }
+                }
+            }
+        }
+        
+        func verifyUpdateEmail(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: BaseResponse?) -> Void) {
+            DataManager.sharedInstance().request(.post, EndPoint.verifyUpdateEmail.rawValue, parameters: parameter,isAuth: true) { _, error, result in
+                if let error = error {
+                    completionHandler(error, nil)
+                } else {
+                    if let result = result, let response = Mapper<BaseResponse>().map(JSON: result) {
+                        completionHandler(nil, response)
+                    } else {
+                        let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                        completionHandler(error as Error, nil)
+                    }
+                }
+            }
+        }
+    
+    func verifyWhatsApp(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: UserResponse?) -> Void) {
+            DataManager.sharedInstance().request(.post, EndPoint.verifyWhatsApp.rawValue, parameters: parameter,isAuth: true) { _, error, result in
+                if let error = error {
+                    completionHandler(error, nil)
+                } else {
+                    if let result = result, let response = Mapper<UserResponse>().map(JSON: result) {
+                        completionHandler(nil, response)
+                    } else {
+                        let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                        completionHandler(error as Error, nil)
+                    }
+                }
+            }
+        }
+        
+        func verifyEmail(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: UserResponse?) -> Void) {
+            DataManager.sharedInstance().request(.post, EndPoint.verifyEmail.rawValue, parameters: parameter,isAuth: true) { _, error, result in
+                if let error = error {
+                    completionHandler(error, nil)
+                } else {
+                    if let result = result, let response = Mapper<UserResponse>().map(JSON: result) {
+                        completionHandler(nil, response)
+                    } else {
+                        let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                        completionHandler(error as Error, nil)
+                    }
+                }
+            }
+        }
+
+    func sendOtp(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: UserResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.sendOTP.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<UserResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func studentSendOtp(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: BaseResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.student_SendOtp.rawValue, parameters: parameter,isAuth: true) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<BaseResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func loginUser(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: UserResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.login.rawValue, parameters: parameter,isAuth: true) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<UserResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    
+    func fetchSearchMessages(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: MessageResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.fetchSearchMessage.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<MessageResponse>().map(JSON: result) {
+                    response.status.uppercased() != "SUCCESS" ? completionHandler(AppError(errorString: response.message), nil) : completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func studentLogin(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: UserResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.student_Login.rawValue, parameters: parameter,isAuth: true) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<UserResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+    
+    func fetchSingleSession(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: SessionResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.fetchSingleSession.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<SessionResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func updateProfile(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: UserResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.updateEmail.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<UserResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func updateLoginProfile(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: UserResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.updateProfile.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<UserResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func fetchChatGroupListDetails(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: ChatListResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.fetchChat_Group_List.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<ChatListResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+    
+    func fetchSupportChatListDetails(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: SupportChatListResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.fetchSupportChat_List.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<SupportChatListResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func fetchTutorListDetails(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: UserResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.fetch_Tutor_List.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<UserResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+    
+    func fetchActiveUserDetails(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: UserResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.fetch_Active_Users.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<UserResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+    
+    func createGroups(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: BaseResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.createGroup.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<BaseResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+    
+    func updateGroups(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: BaseResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.updateGroup.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<BaseResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+    
+    func fetchGroupService(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: GroupsResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.fetchGroup.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<GroupsResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+    
+    func fetchGroupMemberService(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: UserResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.fetchGroupMember.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<UserResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+    
+    func DeleteGroupMemberService(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: BaseResponse?) -> Void) {
+        DataManager.sharedInstance().request(.put, EndPoint.deleteGroup.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<BaseResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func createSessionAdminGroup(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: GroupSessionResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.create_Session_Group_Admin.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<GroupSessionResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func createSessionTutorService(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: GroupSessionResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.create_Session_Tutor_Admin.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<GroupSessionResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func fetchListNotes(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: ListNoteResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.notes_List.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<ListNoteResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func fetchQuickReplyList(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: QuickReplyResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.quickReply_List.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<QuickReplyResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+    
+    func fetchReferralsList(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: ReferralsResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.referralsList.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<ReferralsResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func fetchReferralsCountList(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: ReferralCountResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.referralCount.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<ReferralCountResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    
+    func deleteNotes(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: ListNoteResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.delete_Note.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<ListNoteResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func deleteQuickReply(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: QuickReplyResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.delete_QuickReply.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<QuickReplyResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func addNote(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: ListNoteResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.add_Note.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<ListNoteResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func addQuickReply(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: QuickReplyResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.add_QuickReply.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<QuickReplyResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func updateNote(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: ListNoteResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.update_Note.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<ListNoteResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func updateQuickReply(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: QuickReplyResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.update_quickReply.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<QuickReplyResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func loginTutor(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: UserResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.tutorLogin.rawValue, parameters: parameter,isAuth: true) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<UserResponse>().map(JSON: result) {
+                    if response.status.lowercased().trimmingCharacters(in: .whitespacesAndNewlines) != "success" {
+                        completionHandler(AppError(errorString: response.message), nil)
+                    } else {
+                        completionHandler(nil, response)
+                    }
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func registerUser(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: CreateUserResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.registerUser.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<CreateUserResponse>().map(JSON: result) {
+                    response.status.uppercased() != "SUCCESS" ? completionHandler(AppError(errorString: response.message), nil) : completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func fetchUserDetails(userId: String, completionHandler: @escaping (_ error: Error?, _ response: UserResponse?) -> Void) {
+        let url = "auth/" + userId
+        DataManager.sharedInstance().request(.get, url, parameters: nil) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<UserResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func verifyUser(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: UserResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.verifyOTP.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<UserResponse>().map(JSON: result) {
+                    response.status.uppercased() != "SUCCESS" ? completionHandler(AppError(errorString: response.message), nil) : completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func sendOTP(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: BasicResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.sendOTP.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<BasicResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func emailVerificationOTP(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: BasicResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.emailVerification.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<BasicResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+    
+    func updateUserName(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: BasicResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.updateUserName.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<BasicResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func updatePassword(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: BasicResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.updatePassword.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<BasicResponse>().map(JSON: result) {
+                    response.status.uppercased() != "SUCCESS" ? completionHandler(AppError(errorString: response.message), nil) : completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func sendMessage(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: BasicResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.contactUs.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<BasicResponse>().map(JSON: result) {
+                    response.status.uppercased() != "SUCCESS" ? completionHandler(AppError(errorString: response.message), nil) : completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func addNewSessionUser(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: BasicResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.addSessionUser.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<BasicResponse>().map(JSON: result) {
+                    response.status.uppercased() != "SUCCESS" ? completionHandler(AppError(errorString: response.message), nil) : completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func addSessionRating(parameter: [String: Any], isWork: Bool, completionHandler: @escaping (_ error: Error?, _ response: BasicResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, isWork ? EndPoint.workRating.rawValue : EndPoint.addSessionRating.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<BasicResponse>().map(JSON: result) {
+                    response.status.uppercased() != "SUCCESS" ? completionHandler(AppError(errorString: response.message), nil) : completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func fetchSessionRatings(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: UsersReviewsResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.sessionRatings.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<UsersReviewsResponse>().map(JSON: result) {
+                    response.status.uppercased() != "SUCCESS" ? completionHandler(AppError(errorString: response.message), nil) : completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+    
+    /// Delete User Account
+    
+    func deleteUserAccount(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: BaseResponse?) -> Void) {
+        DataManager.sharedInstance().request(.put, EndPoint.deleteAccount.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<BaseResponse>().map(JSON: result) {
+                    response.status.uppercased() != "SUCCESS" ? completionHandler(AppError(errorString: response.message), nil) : completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func fetchSessionRating(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: UsersReviewResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.fetchSessionRating.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<UsersReviewResponse>().map(JSON: result) {
+                    response.status.uppercased() != "SUCCESS" ? completionHandler(AppError(errorString: response.message), nil) : completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func updateSessionRating(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: UsersReviewResponse?) -> Void) {
+        DataManager.sharedInstance().request(.put, EndPoint.updateSessionRating.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<UsersReviewResponse>().map(JSON: result) {
+                    response.status.uppercased() != "SUCCESS" ? completionHandler(AppError(errorString: response.message), nil) : completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func fetchOffers(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: OfferResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.fetchOffers.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<OfferResponse>().map(JSON: result) {
+                    response.status.uppercased() != "SUCCESS" ? completionHandler(AppError(errorString: response.message), nil) : completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func setOfferRead(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: OfferResponse?) -> Void) {
+        DataManager.sharedInstance().request(.put, EndPoint.readOffer.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<OfferResponse>().map(JSON: result) {
+                    response.status.uppercased() != "SUCCESS" ? completionHandler(AppError(errorString: response.message), nil) : completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func createOffer(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: OfferResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.createOffer.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<OfferResponse>().map(JSON: result) {
+                    response.status.uppercased() != "SUCCESS" ? completionHandler(AppError(errorString: response.message), nil) : completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func fetchSessions(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: SessionsResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.fetchSessions.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<SessionsResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+    
+    func fetchAnnouncement(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: AnnouncementResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.fetchAnnouncement.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<AnnouncementResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func fetchSession(sessionId: String, completionHandler: @escaping (_ error: Error?, _ response: SessionResponse?) -> Void) {
+        DataManager.sharedInstance().request(.get, EndPoint.fetchSession.rawValue + sessionId, parameters: nil) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<SessionResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+     
+    func fetchGlobalSearch(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: globalSearchResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.globalSearch.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<globalSearchResponse>().map(JSON: result) {
+                    response.status.uppercased() != "SUCCESS" ? completionHandler(AppError(errorString: response.message), nil) : completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+    
+    func fetchMessages(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: MessageResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.fetchMessageDate.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<MessageResponse>().map(JSON: result) {
+                    response.status.uppercased() != "SUCCESS" ? completionHandler(AppError(errorString: response.message), nil) : completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+    
+    func fetchAllMessages(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: MessageResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.fetchMessage.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<MessageResponse>().map(JSON: result) {
+                    response.status.uppercased() != "SUCCESS" ? completionHandler(AppError(errorString: response.message), nil) : completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+    
+    func fetchUnreadMessages(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: MessageResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.fetchUnreadMessageDate.rawValue, parameters: parameter) { _, error, result in
+            Utils.isMessageUpdating = false
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<MessageResponse>().map(JSON: result) {
+                    response.status.uppercased() != "SUCCESS" ? completionHandler(AppError(errorString: response.message), nil) : completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+    
+    func fetchallMessages(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: MessageResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.fetchAllMessage.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<MessageResponse>().map(JSON: result) {
+                    response.status.uppercased() != "SUCCESS" ? completionHandler(AppError(errorString: response.message), nil) : completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+    
+    func fetchallMessagesCount(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: mesageCountResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.fetchAllMessageCount.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<mesageCountResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+    
+    func fetchAllProfileCount(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: profileCountResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.fetchAllProfileCount.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<profileCountResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+    
+    func walletReadAllCount(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: BaseResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.walletReadAllCount.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<BaseResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func readAllSessionMessages(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: BaseResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.readAllSessionMessage.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<BaseResponse>().map(JSON: result) {
+                    response.status.uppercased() != "SUCCESS" ? completionHandler(AppError(errorString: response.message), nil) : completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func fetchMessagesInfo(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: SessionUserResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.fetchMessageInfo.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<SessionUserResponse>().map(JSON: result) {
+                    response.status.uppercased() != "SUCCESS" ? completionHandler(AppError(errorString: response.message), nil) : completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+    
+    func fetchDeliveredMessagesInfo(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: SessionUserResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.fetchDeliveredMessageInfo.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<SessionUserResponse>().map(JSON: result) {
+                    response.status.uppercased() != "SUCCESS" ? completionHandler(AppError(errorString: response.message), nil) : completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func fetchSessionUsers(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: SessionUserResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.fetchSessionUser.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<SessionUserResponse>().map(JSON: result) {
+                    response.status.uppercased() != "SUCCESS" ? completionHandler(AppError(errorString: response.message), nil) : completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func createPushToken(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: BasicResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.createPushToken.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<BasicResponse>().map(JSON: result) {
+                    response.status.uppercased() != "SUCCESS" ? completionHandler(AppError(errorString: response.message), nil) : completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func fetchUserProtectionList(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: UserProtectionResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.userProtection.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<UserProtectionResponse>().map(JSON: result) {
+                    response.status.uppercased() != "SUCCESS" ? completionHandler(AppError(errorString: response.message), nil) : completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func createUserProtection(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: BasicResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.createUserProtection.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<BasicResponse>().map(JSON: result) {
+                    response.status.uppercased() != "SUCCESS" ? completionHandler(AppError(errorString: response.message), nil) : completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func fetchOnboards(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: OnboardInfoResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.onboard.rawValue, parameters: parameter,isAuth: true) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<OnboardInfoResponse>().map(JSON: result) {
+                    response.status.uppercased() != "SUCCESS" ? completionHandler(AppError(errorString: response.message), nil) : completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func getWorkOrderId(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: RazorPayOrder?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.workPaymentOrderId.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<RazorPayOrder>().map(JSON: result) {
+                    response.status.uppercased() != "SUCCESS" ? completionHandler(AppError(errorString: response.message), nil) : completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func workPaymentSuccess(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: BasicResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.workPaymentSuccess.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<BasicResponse>().map(JSON: result) {
+                    response.status.uppercased() != "SUCCESS" ? completionHandler(AppError(errorString: response.message), nil) : completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    // MARK: - Fetch Name API Service Call
+
+    func fetchNames(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: NameResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.names.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<NameResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    //    MARK: - Fetch Create Label API Service Call
+
+    func labelDetail(labelId: String, completionHandler: @escaping (_ error: Error?, _ response: MessageLabelResponse?) -> Void) {
+           DataManager.sharedInstance().request(.get, EndPoint.label.rawValue + labelId, parameters: nil) { _, error, result in
+               if let error = error {
+                   completionHandler(error, nil)
+               } else {
+                   if let result = result, let response = Mapper<MessageLabelResponse>().map(JSON: result) {
+                       completionHandler(nil, response)
+                   } else {
+                       let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                       completionHandler(error as Error, nil)
+                   }
+               }
+           }
+       }
+    
+    /// Fetch Label
+    func fetchLabel(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: MessageQuesitonLabelResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.fetchLabel.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<MessageQuesitonLabelResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func createLabel(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: MessageLabelResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.createLabel.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<MessageLabelResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func updateCreateLabel(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: BaseResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.updateLabel.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<BaseResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+    func deleteLabel(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: BaseResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.deleteLabel.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<BaseResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+    
+    func readAllReferrals(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: BaseResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.readAllReferrals.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<BaseResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+    
+    func stripePayment(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: BaseResponse?) -> Void) {
+          DataManager.sharedInstance().request(.post, EndPoint.stripePayment.rawValue, parameters: parameter) { _, error, result in
+              if let error = error {
+                  completionHandler(error, nil)
+              } else {
+                  if let result = result, let response = Mapper<BaseResponse>().map(JSON: result) {
+                      completionHandler(nil, response)
+                  } else {
+                      let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                      completionHandler(error as Error, nil)
+                  }
+              }
+          }
+      }
+
+    
+    func fetchWorkTransaction(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: TransactionDetailsResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.fetchWorkTransaction.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<TransactionDetailsResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+    
+    func resendWorkTransaction(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: BaseResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.resendWorkTransaction.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<BaseResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+    
+    /// Use for now payment only for user
+    func payNow(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: WorkTransactionResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.getWorkOrderId.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<WorkTransactionResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+    
+    /// Use for now payment only for user
+    func updateBillingDetails(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: BaseResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.billing.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<BaseResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+    
+    /// Use for payment success service call
+    func paymentSuccess(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: BaseResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.paymentSuccess.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<BaseResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+    
+    func paymentBonusSuccess(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: BaseResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.paymentBonusSuccess.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<BaseResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+    
+    func paymentUnSuccess(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: BaseResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.paymentUnSuccess.rawValue, parameters: parameter) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<BaseResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+}
