@@ -1,0 +1,329 @@
+//
+//  Date+Exensions.swift
+//  Tutor
+//
+//  Created by Apzzo on 12/11/21.
+//
+import UIKit
+extension Date {
+    var millisecondsSince1970: Int {
+        return Int((timeIntervalSince1970 * 1000.0).rounded())
+    }
+
+    init(milliseconds: Int) {
+        self = Date(timeIntervalSince1970: TimeInterval(milliseconds / 1000))
+    }
+
+    func toString(dateFormat: String, timeZone: TimeZone = .current) -> String {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = dateFormat
+        dateFormatter.timeZone = timeZone
+        return dateFormatter.string(from: self)
+    }
+
+    func isBetween(_ date1: Date, and date2: Date) -> Bool {
+        return (min(date1, date2) ... max(date1, date2)).contains(self)
+    }
+
+    func addMonth(n: Int) -> Date {
+        let cal = NSCalendar.current
+        return cal.date(byAdding: .month, value: n, to: self)!
+    }
+
+    func addDay(n: Int) -> Date {
+        let cal = NSCalendar.current
+        return cal.date(byAdding: .day, value: n, to: self)!
+    }
+
+    func addSec(n: Int) -> Date {
+        let cal = NSCalendar.current
+        return cal.date(byAdding: .second, value: n, to: self)!
+    }
+
+    func getElapsedIntervalInSeconds() -> Int {
+        let interval = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute, .second], from: self, to: Date())
+        print("Elapsed Seconds: \(interval.second!)")
+        return interval.second!
+    }
+
+    func getElapsedIntervalInMinutes() -> String {
+        _ = Calendar.current
+        let diff = Calendar.current.dateComponents([.minute], from: self, to: Date()).minute ?? 0
+        return "\(diff) min ago"
+    }
+
+    func getElapsedInterval() -> String {
+        print(self)
+        print(Date())
+        let interval = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute, .second], from: self, to: Date())
+        if let year = interval.year, year > 0 {
+            return year == 1 ? "\(year)" + " " + "year" :
+                "\(year)" + " " + "years"
+        } else if let month = interval.month, month > 0 {
+            return month == 1 ? "\(month)" + " " + "month" :
+                "\(month)" + " " + "months"
+        } else if let day = interval.day, day > 0 {
+            return day == 1 ? "\(day)" + " " + "day" :
+                "\(day)" + " " + "days"
+        } else if let hour = interval.hour, hour > 0 {
+            return hour == 1 ? "\(hour)" + " " + "hour" :
+                "\(hour)" + " " + "hours"
+        } else if let minute = interval.minute, minute > 0 {
+            return minute == 1 ? "\(minute)" + " " + "minute" :
+                "\(minute)" + " " + "minutes"
+        } else if let second = interval.second, second > 0 {
+            return second == 1 ? "\(second)" + " " + "second" :
+                "\(second)" + " " + "seconds"
+        } else {
+            return "a moment ago"
+        }
+    }
+
+    func getStringFromServerDate() -> String {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
+        dateFormatter.timeZone = TimeZone(abbreviation: "UTC")
+        return dateFormatter.string(from: self)
+    }
+
+    func getShiftTimeFormat() -> String {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = " yyyy-MM-dd'T'HH:mm"
+        dateFormatter.timeZone = TimeZone(abbreviation: "UTC")
+        return dateFormatter.string(from: self)
+    }
+
+    func startOfMonth() -> Date {
+        return Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: Calendar.current.startOfDay(for: self)))!
+    }
+
+    func getPreviousWeek() -> Date? {
+        return Calendar.current.date(byAdding: .weekOfYear, value: -1, to: self)
+    }
+
+    func add(minutes: Int) -> Date {
+        return Calendar(identifier: .gregorian).date(byAdding: .minute, value: minutes, to: self)!
+    }
+
+    func add(day: Int) -> Date {
+        return Calendar.current.date(byAdding: .day, value: day, to: self)!
+    }
+
+    var startOfDay: Date {
+        return Calendar.current.startOfDay(for: self)
+    }
+
+    var endOfDay: Date {
+        var components = DateComponents()
+        components.day = 1
+        components.second = -1
+        return Calendar.current.date(byAdding: components, to: startOfDay) ?? Date()
+    }
+
+    var startOfDayLocal: Date {
+        let date = Calendar.current.startOfDay(for: self)
+        let dslTimeOffset = NSTimeZone.local.daylightSavingTimeOffset(for: date)
+        return date.addingTimeInterval(dslTimeOffset)
+    }
+
+    var endOfWeekLocal: Date {
+        return Calendar.current.date(byAdding: .second, value: 604799, to: startOfWeek)!
+    }
+
+    func endOfMonth() -> Date {
+        return Calendar.current.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth())!
+    }
+
+    var startOfYear: Date {
+        return Calendar.current.date(from: DateComponents(year: Calendar.current.component(.year, from: Date()), month: 1, day: 1))!
+    }
+
+    var endOfYear: Date {
+        return Calendar.current.date(byAdding: .day, value: -1, to: Calendar.current.date(from: DateComponents(year: Calendar.current.component(.year, from: Date()) + 1, month: 1, day: 1))!)!
+    }
+
+    var startOfYear1: Date {
+        return Calendar.current.date(from: DateComponents(year: Calendar.current.component(.year, from: self), month: 1, day: 1))!
+    }
+
+    var endOfYear1: Date {
+        return Calendar.current.date(byAdding: .day, value: -1, to: Calendar.current.date(from: DateComponents(year: Calendar.current.component(.year, from: self) + 1, month: 1, day: 1))!)!
+    }
+
+    func getSeventhDateFromNow() -> Date {
+        return Calendar.current.date(byAdding: .day, value: -7, to: self)!
+    }
+
+    func oneMonthBackDateFromDate() -> Date {
+        return Calendar.current.date(byAdding: .month, value: -1, to: Date())!
+    }
+
+    func dateFutureFormat() -> Date {
+        return Calendar.current.date(byAdding: .day, value: +1, to: Date())!
+    }
+
+    func getFormatedDateTimeString() -> String {
+        let dateFormater = DateFormatter()
+        dateFormater.dateFormat = "hh:mm a"
+        return dateFormater.string(from: self)
+    }
+
+    func getFormatedDateTimeString1() -> String {
+        let dateFormater = DateFormatter()
+        dateFormater.dateFormat = "yyyy-MM-dd" 
+        return dateFormater.string(from: self)
+    }
+    
+    static func getDateOfBirthFormat1(from dateString: String) -> String? {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        if let date = dateFormatter.date(from: dateString) {
+            dateFormatter.dateFormat = "dd-MM-yyyy"
+            return dateFormatter.string(from: date)
+        }
+        return nil
+    }
+    
+    static func getDateOfBirthFormat2(from dateString: String) -> String? {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "dd-MM-yyyy"
+        if let date = dateFormatter.date(from: dateString) {
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+            return dateFormatter.string(from: date)
+        }
+        return nil
+    }
+
+    func getFormatedDateTimeString2() -> String {
+        let dateFormater = DateFormatter()
+        dateFormater.dateFormat = "dd-MM-yyyy"
+        return dateFormater.string(from: self)
+    }
+
+    func getSmallCaseFormatedDateTimeString() -> String {
+        let dateFormater = DateFormatter()
+        dateFormater.dateFormat = "HH:mm" 
+        return dateFormater.string(from: self)
+    }
+
+    func getDateOfBirthFormat() -> String {
+        let dateFormater = DateFormatter()
+        dateFormater.dateFormat = "dd-MM-yyyy"
+        return dateFormater.string(from: self)
+    }
+
+    func yearMonthDateHyphenFormat() -> String {
+        let dateFormater = DateFormatter()
+        dateFormater.dateFormat = "yyyy-MM-dd"
+        return dateFormater.string(from: self)
+    }
+
+    func patientUpdateDateFormat() -> String {
+        let dateFormater = DateFormatter()
+        dateFormater.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
+        return dateFormater.string(from: self)
+    }
+
+    func getYearString() -> String {
+        let dateFormater = DateFormatter()
+        dateFormater.dateFormat = "yyyy"
+        return dateFormater.string(from: self)
+    }
+
+    func getFullMonthString() -> String {
+        let dateFormater = DateFormatter()
+        dateFormater.dateFormat = "MMMM"
+        return dateFormater.string(from: self)
+    }
+
+    func getDayMonth() -> String {
+        let dateFormater = DateFormatter()
+        dateFormater.dateFormat = "dd MMM YYYY"
+        return dateFormater.string(from: self)
+    }
+
+    func getDayMonthForCreateTask() -> String {
+        let dateFormater = DateFormatter()
+        dateFormater.dateFormat = "dd MMMM yyyy hh:mm a"
+        return dateFormater.string(from: self)
+    }
+
+    func shiftTimeFormat() -> String {
+        let dateFormater = DateFormatter()
+        dateFormater.dateFormat = "hh:mm a"
+        return dateFormater.string(from: self)
+    }
+    func hourMinuteSecondTimeFormat() -> String {
+        let dateFormater = DateFormatter()
+        dateFormater.dateFormat = "HH:mm:ss"
+        return dateFormater.string(from: self)
+    }
+    
+    func getReacentTime() -> String {
+        let dateFormater = DateFormatter()
+        dateFormater.dateFormat = "Hmm"
+        return dateFormater.string(from: self)
+    }
+    
+    func getTwentyFourHoursTime() -> String {
+        let dateFormater = DateFormatter()
+        dateFormater.dateFormat = "HH"
+        return dateFormater.string(from: self)
+    }
+    
+    func getMinute() -> String {
+        let dateFormater = DateFormatter()
+        dateFormater.dateFormat = "mm"
+        return dateFormater.string(from: self)
+    }
+
+    func createShiftDateFormat() -> String {
+        let dateFormater = DateFormatter()
+        dateFormater.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        return dateFormater.string(from: self)
+    }
+
+    func getTime() -> String {
+        let dateFormater = DateFormatter()
+        dateFormater.dateFormat = "a"
+        return dateFormater.string(from: self)
+    }
+
+    func getDeadLine() -> String {
+        let dateFormater = DateFormatter()
+        dateFormater.dateFormat = "dd MMM YYYY"
+        return dateFormater.string(from: self)
+    }
+
+    func getDay() -> String {
+        let dateFormater = DateFormatter()
+        dateFormater.dateFormat = "EEE"
+        return dateFormater.string(from: self)
+    }
+    
+    func get24Format() -> String {
+        let dateFormater = DateFormatter()
+        dateFormater.dateFormat = "HH:mm"
+        return dateFormater.string(from: self)
+    }
+
+    var startOfWeek: Date {
+        let date = Calendar.current.date(from: Calendar.current.dateComponents([.yearForWeekOfYear, .weekOfYear], from: self))!
+        let dslTimeOffset = NSTimeZone.local.daylightSavingTimeOffset(for: date)
+        return date.addingTimeInterval(dslTimeOffset)
+    }
+
+    var endOfWeek: Date {
+        return Calendar.current.date(byAdding: .second, value: 604799, to: startOfWeek)!
+    }
+}
+
+class DateUtils {
+    class func convertToDate(dateString: String?, format: DateFormate, timeZone: TimeZone = TimeZone(abbreviation: "UTC")!) -> Date? {
+        guard let dateString = dateString else { return nil }
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = format.rawValue
+        dateFormatter.timeZone = timeZone
+        return dateFormatter.date(from: dateString)
+    }
+}
