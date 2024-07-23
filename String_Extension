@@ -1,0 +1,81 @@
+//
+//  String+Extension.swift
+//  Nucleo
+//
+//  Created by Apzzo on 28/12/21.
+//
+
+import UIKit
+extension String {
+    var doubleValue: Double {
+        return Double(self) ?? 0
+    }
+
+    /// It will apply USA phone numer pattern while typing.
+    /// - Parameters:
+    ///   - replacementCharacter: Characters which we need to replace
+    /// - Returns: It will return phoneNo with pattern.
+    func applyUSPhoneNumberPattern(replacementCharacter: Character) -> String {
+        let pattern = "###-###-####"
+        var pureNumber = replacingOccurrences(of: "[^0-9]", with: "", options: .regularExpression)
+        for index in 0 ..< pattern.count {
+            guard index < pureNumber.count else { return pureNumber }
+            let stringIndex = String.Index(utf16Offset: index, in: pattern)
+            let patternCharacter = pattern[stringIndex]
+            guard patternCharacter != replacementCharacter else { continue }
+            pureNumber.insert(patternCharacter, at: stringIndex)
+        }
+        return pureNumber
+    }
+
+    func applyUSPhoneNumberNormalPattern(replacementCharacter: Character) -> String {
+        let pattern = "##########"
+        var pureNumber = replacingOccurrences(of: "[^0-9]", with: "", options: .regularExpression)
+        for index in 0 ..< pattern.count {
+            guard index < pureNumber.count else { return pureNumber }
+            let stringIndex = String.Index(utf16Offset: index, in: pattern)
+            let patternCharacter = pattern[stringIndex]
+            guard patternCharacter != replacementCharacter else { continue }
+            pureNumber.insert(patternCharacter, at: stringIndex)
+        }
+        return pureNumber
+    }
+    
+    func applyCardNumberNormalPattern(replacementCharacter: Character) -> String {
+        let pattern = "#### #### #### ####"
+        var pureNumber = replacingOccurrences(of: "[^0-9]", with: "", options: .regularExpression)
+        for index in 0 ..< pattern.count {
+            guard index < pureNumber.count else { return pureNumber }
+            let stringIndex = String.Index(utf16Offset: index, in: pattern)
+            let patternCharacter = pattern[stringIndex]
+            guard patternCharacter != replacementCharacter else { continue }
+            pureNumber.insert(patternCharacter, at: stringIndex)
+        }
+        return pureNumber
+    }
+
+    func trim() -> String {
+        return trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    func capitalizingFirstLetter() -> String {
+        return capitalized
+    }
+
+    var localized: String {
+        return NSLocalizedString(self, comment: "")
+    }
+
+    func getDate(format: String) -> Date {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = format
+        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+        return dateFormatter.date(from: self) ?? Date()
+    }
+    
+    func deletingPrefix(_ prefix: String) -> String {
+        guard self.hasPrefix(prefix) else { return self }
+        return String(self.dropFirst(prefix.count))
+      }
+    
+}
