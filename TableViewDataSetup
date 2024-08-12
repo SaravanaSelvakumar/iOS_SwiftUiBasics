@@ -1,0 +1,119 @@
+class Assistance {
+    var name = ""
+    var isSelected = false
+    var index = 0
+  
+    init(name: String, isSelected: Bool, index: Int) {
+        self.isSelected = isSelected
+        self.name = name
+        self.index = index
+    }
+}
+
+class TableViewDataSetupVC: UIViewController {
+    
+    static let name = "TableViewDataSetupVC"
+    static let storyBoard = "TableViewDataSetup"
+    
+    /// The caller of this class does not need to know how we instantiate it.
+    /// We simply return the instantiated class to the caller and they invoke it how they want
+    /// If the as! fails, it will fail upon immediate testing
+    
+    class func instantiateFromStoryboard() -> TableViewDataSetupVC {
+        let vc = UIStoryboard(name: TableViewDataSetupVC.storyBoard, bundle: nil).instantiateViewController(withIdentifier: TableViewDataSetupVC.name) as! TableViewDataSetupVC
+        return vc
+    }
+    
+    @IBOutlet var assistanceTV: UITableView!
+
+    var assistanceList = [Assistance]()
+    var selectedIndexPath: IndexPath?
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        registerTableViewCell()
+    }
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        dataSetup()
+        setupViews()
+    }
+    
+    func registerTableViewCell() {
+        let vehicleTableViewCell = UINib(nibName: AssistanceTVC.nibName, bundle: nil)
+        assistanceTV.register(vehicleTableViewCell, forCellReuseIdentifier: AssistanceTVC.reuseIdentifier)
+    }
+    
+    func dataSetup() {
+        assistanceList.removeAll()
+        assistanceList.append(Assistance(name: "Vehicle needs servicing on-the-spot (dead battery, flat tire, lockout, and out of gas/charge) and no towing is needed", isSelected: false, index: 0))
+        assistanceList.append(Assistance(name: "Vehicle needs to be towed to a repair shop due to a breakdown", isSelected: false, index: 1))
+        assistanceList.append(Assistance(name: "Vehicle needs to be towed due to an accident", isSelected: false, index: 2))
+        assistanceList.append(Assistance(name: "Require assistance with operating the vehicle or need to speak to the Owner:", isSelected: false, index: 3))
+        assistanceTV.reloadData()
+    }
+    
+    func setupViews() {
+        title = "Roadside Assistance".localized
+        setNavigationBackButton()
+    }
+    
+    func setNavigationBackButton() {
+        navigationController?.navigationBar.setNeedsLayout()
+        let backBarButton = UIBarButtonItem(image: UIImage.UIImage(named: "Back_Button"), style: .plain, target: self, action: #selector(BaseViewController.actionOnBackButton(sender:)))
+        backBarButton.tintColor = UIColor.black
+        navigationItem.leftBarButtonItem = backBarButton
+    }
+    
+    @objc func actionOnBackButton(sender: UIBarButtonItem) {
+        navigationController?.popViewController(animated: true)
+    }
+
+   func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return assistanceList.count
+    }
+
+   func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: AssistanceTVC.reuseIdentifier, for: indexPath) as! AssistanceTVC
+        cell.configureCell(assistance: assistanceList[indexPath.row])
+        return cell
+    }
+
+  func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        assistanceList.forEach({$0.isSelected = false})
+        assistanceList[indexPath.row].isSelected = true
+        selectedIndexPath = indexPath
+        assistanceTV.reloadData()
+    }
+
+  func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        return UITableView.automaticDimension
+    }
+
+}
+
+
+import UIKit
+
+class AssistanceTVC: UITableViewCell {
+    
+    static let nibName = "AssistanceTVC"
+    static let reuseIdentifier = nibName
+    
+    @IBOutlet var slectionIV: UIImageView!
+    @IBOutlet var nameL: UILabel!
+    
+    override func awakeFromNib() {
+        super.awakeFromNib()
+
+    }
+        
+    func configureCell(assistance: Assistance) {
+        slectionIV.image =  UIImage(named: assistance.isSelected ? "Fill_Circle" : "Radio")
+        nameL.text = assistance.name
+        nameL.textColor =  assistance.isSelected ? UIColor.black : UIColor.disableButtonColor
+    }
+    
+}
+
+
