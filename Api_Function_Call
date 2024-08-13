@@ -1,0 +1,274 @@
+   //            simple api call class
+
+class ProfileDetailsVC: UIViewController {
+
+//      To store the response data in a object 
+
+var universityData = [UniversityResponseData]()
+
+//      api function call 
+
+func fetchUniverstiyList() {
+        Utils.showHUD(view: view)
+        let param = [
+            "pagination": [
+                "limit": 10,
+                "pageNo": 1
+            ],
+            "type": "UNIVERSITY",
+        ] as [String : Any]
+        DataManager.sharedInstance().fetchUniversity(parameter: param) { error, response in
+            DispatchQueue.main.async { [self] in
+                Utils.hideHUD(view: self.view)
+                if let error = error {
+                    Utils.showAlert(message: error.localizedDescription, viewController: self)
+                }  else if let data = response?.data {
+                    self.universityData = data                
+                }
+            }
+        }
+    }
+}
+
+enum EndPoint: String { case fetchUniversity = "name/fetch-names" }
+
+func fetchUniversity(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: UniversityResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.fetchUniversity.rawValue, parameters: parameter,isAuth: true) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<UniversityResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+// To store the response in a class 
+
+class UniversityResponse: NSObject, Mappable {
+    var message = ""
+    var status = ""
+    var data = [UniversityResponseData]()
+    var count = 0
+    
+    required convenience init?(map: Map) {
+        self.init()
+    }
+    
+    func mapping(map: Map) {
+        message <- map["message"]
+        status <- map["status"]
+        data <- map["data"]
+        count <- map["count"]
+    }
+}
+
+class UniversityResponseData: NSObject, Mappable {
+    
+    var roles = [String]()
+    var isDeleted = false
+    var id = ""
+    var type = ""
+    var name = ""
+    var nickName = ""
+    var country = ""
+    var countryCode = ""
+    var status = ""
+    var createdAt = ""
+    var updatedAt = ""
+    var version = 0
+    var isSelected = false
+    
+    required init?(map: Map) {}
+    
+    func mapping(map: Map) {
+        roles <- map["roles"]
+        isDeleted <- map["isDeleted"]
+        id <- map["_id"]
+        type <- map["type"]
+        name <- map["name"]
+        nickName <- map["nickName"]
+        country <- map["country"]
+        countryCode <- map["countryCode"]
+        status <- map["status"]
+        createdAt <- map["createdAt"]
+        updatedAt <- map["updatedAt"]
+        version <- map["__v"]
+    }
+}
+
+
+//  ***************************************************************************************************************************************************************************  //
+
+
+
+
+// Another api function with optional key parameters 
+
+func verifyEmailLogin() {
+        Utils.showHUD(view: view)
+        var param: [String : Any] = [
+            "id": CustomUserDefaults.UserId ?? "",
+        ]
+        if let name = nameTextField.text, !name.isEmpty {
+            param["name"] = name
+        }
+        if let dob = dobTextField.text, !dob.isEmpty, let formattedDOB = Date.getDateOfBirthFormat1(from: dob) {
+            param["dateOfBirth"] = formattedDOB
+        }
+        if let phoneNo = contactTextField.text, !phoneNo.isEmpty {
+            param["phoneNo"] = phoneNo
+            if let phoneCountryCode = phoneCountryTextField.text, !phoneCountryCode.isEmpty {
+                param["phoneCountryCode"] = phoneCountryCode
+                if !countryCode.isEmpty {
+                    param["countryCode"] = countryCode
+                }
+            }
+        }
+        
+        if !selectedUniversityID.isEmpty {
+            param["universityId"] = selectedUniversityID
+        }
+            
+        DataManager.sharedInstance().verifyProfileDetails(parameter: param) { error, response in
+            DispatchQueue.main.async { [self] in
+                Utils.hideHUD(view: self.view)
+                if let error = error {
+                    Utils.showAlert(message: error.localizedDescription, viewController: self)
+                }  else if let data = response?.data {
+                    CustomUserDefaults.countryCode = data.countryCode
+                    CustomUserDefaults.emailAddress = data.email
+                    CustomUserDefaults.phoneNumber = data.phoneNo
+                    let nextVC = SplashViewController.instantiateFromStoryboard()
+                    nextVC.isFromOtp = true
+                    self.navigationController?.pushViewController(nextVC, animated: true)
+                }
+            }
+        }
+    }
+
+func verifyProfileDetails(parameter: [String: Any], completionHandler: @escaping (_ error: Error?, _ response: ProfileUserResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.profileDetails.rawValue, parameters: parameter,isAuth: true) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<ProfileUserResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }
+
+  enum EndPoint: String {  case profileDetails = "et/v1/auth/update-profile" }
+
+class ProfileUserResponse: NSObject, Mappable {
+    var message = ""
+    var status = ""
+    var data = ProfileDetailsData()
+    var realmdata = RealmUser()
+    
+    required convenience init?(map: Map) {
+        self.init()
+    }
+    
+    func mapping(map: Map) {
+        message <- map["message"]
+        status <- map["status"]
+        data <- map["data"]
+        realmdata <- map["data"]
+    }
+}
+
+class ProfileDetailsData: NSObject, Mappable {        
+    var menuList = [String]()
+    var tds = 0
+    var isDeleted = false
+    var isFavourite = false
+    var balance = 0
+    var isEmailVerified = false
+    var isWhiteBoardUser = false
+    var tutorApplicationStatus = ""
+    var bankApproval = ""
+    var wbAccessStatus = ""
+    var isSalaried = false
+    var allPinnedSessionIds = [String]()
+    var allUnreadSessionIds = [String]()
+    var userName = ""
+    var badgeCount = 0
+    var isPhoneVerified = false
+    var isProfileUpdated = false
+    var isNewUser = false
+    var whatsAppBonus = 0
+    var lastOTPRequestedTime = ""
+    var location = Location()
+    var platform = ""
+    var version = ""
+    var zohoCustomerId = ""
+    var zohoPrimaryCustomerId = ""
+    var countryFullName = ""
+    var billingAddress = BillingAddress()
+    var zohoBillingAddressId = ""
+    var lastMessageDate = ""
+    var university = ""
+    var pgUserDetails = PaymentGatewayDetails()
+    
+    required convenience init?(map: Map) {
+        self.init()
+    }
+    
+    override init() {}
+    
+    func mapping(map: Map) {
+        menuList <- map["menuList"]
+        tds <- map["tds"]
+        isDeleted <- map["isDeleted"]
+        isFavourite <- map["isFavourite"]
+        balance <- map["balance"]
+        isEmailVerified <- map["isEmailVerified"]
+        isWhiteBoardUser <- map["isWhiteBoardUser"]
+        tutorApplicationStatus <- map["tutorApplicationStatus"]
+        bankApproval <- map["bankApproval"]
+        wbAccessStatus <- map["wbAccessStatus"]
+        isSalaried <- map["isSalaried"]
+        allPinnedSessionIds <- map["allPinnedSessionIds"]
+        allUnreadSessionIds <- map["allUnreadSessionIds"]
+        userName <- map["userName"]
+        badgeCount <- map["badgeCount"]
+        isPhoneVerified <- map["isPhoneVerified"]
+        isProfileUpdated <- map["isProfileUpdated"]
+        isNewUser <- map["isNewUser"]
+        whatsAppBonus <- map["whatsAppBonus"]
+        emailBonus <- map["emailBonus"]
+        welcomeBonus <- map["welcomeBonus"]
+        referralBonus <- map["referralBonus"]
+        invited <- map["INVITED"]
+        passwordChanged <- map["passwordChanged"]
+        registrationStatus <- map["registrationStatus"]
+        unreadSessionIds <- map["unreadSessionIds"]
+        isCustomer <- map["isCustomer"]
+        interaktProfileUpdated <- map["interaktProfileUpdated"]
+        id <- map["_id"]
+        pinSessionIds <- map["pinSessionIds"]
+        unreadChatGroupIds <- map["unreadChatGroupIds"]
+        unreadGroupIds <- map["unreadGroupIds"]
+        pinGroupIds <- map["pinGroupIds"]
+        pinChatGroupIds <- map["pinChatGroupIds"]
+        phoneNo <- map["phoneNo"]
+        countryCode <- map["countryCode"]
+        otpCode <- map["otpCode"]
+        role <- map["role"]
+        referralCode <- map["referralCode"]
+        createdAt <- map["createdAt"]
+        updatedAt <- map["updatedAt"]
+        deviceId <- map["deviceId"]
+        email <- map["email"]
+        name <- map["name"]
+    }
+}
