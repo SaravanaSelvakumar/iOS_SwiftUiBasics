@@ -1,0 +1,42 @@
+import UIKit
+import Foundation
+
+class HighorderFunction  {
+    
+    var names = ["sam", "tom","tony", "martin","colon"]
+    var ages = [21, 23, 18, 32, 26]
+    
+    var callBack: ((String , Int)  -> Void)?
+    
+    func done() {
+        callBack?(names.first ?? "", ages.first ?? 0)
+        }
+       
+    
+}
+
+class ShowData {
+    
+    var userName = ""
+    var userAge = 0
+    
+    var object = HighorderFunction()
+
+    
+    func showValues() {
+        object.callBack = { name, age in
+            self.userName = name
+            self.userAge = age
+        }
+        object.done()
+        print ("Name: \(userName)")
+        print ("Name: \(userAge)")
+    }
+    
+    
+    
+}
+
+let show = ShowData()
+show.showValues()
+
