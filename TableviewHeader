@@ -1,0 +1,258 @@
+import Foundation
+import UIKit
+
+class TableviewHeader : BaseViewController, UITabBarControllerDelegate {
+    
+    
+    static let name = "TutorNotificationVC"
+    static let storyBoard = "TutorNotification"
+    
+    class func instantiateFromStoryboard () -> TutorNotificationVC {
+        let vc = UIStoryboard(name: TutorNotificationVC.storyBoard, bundle: nil).instantiateViewController(withIdentifier: TutorNotificationVC.name) as! TutorNotificationVC
+        return vc
+    }
+    
+    @IBOutlet var tableView: UITableView!
+    @IBOutlet var noDataV: UIView!
+    
+    let displayFormatter = DateFormatter()
+    let customDateFormatter = DateFormatter()
+    var isApiInCall = false
+    var isLast = false
+    var notificationData = [TutorNotificationData]()
+    var groupedData: [String: [TutorNotificationData]] = [:]
+    var sortedHeaders: [String] = []
+    var unreadCount: Int = 0
+    var limit = 30
+    var page = 1
+ 
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        registerTableViewCells()
+        customDateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
+        customDateFormatter.timeZone = TimeZone(secondsFromGMT: 0)
+        displayFormatter.dateFormat = "dd/MM/yyyy"
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        page = 1
+        isLast = false
+        isApiInCall = false
+        fetchNotificationServerCall()
+        setupViewWillAppear()
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        self.tabBarItem.image = UIImage(named: "notification_tutor")?.withRenderingMode(UIImage.RenderingMode.alwaysTemplate)
+    }
+    
+    /// Register Table Cells - It is used to show the information contained tableview
+
+    func registerTableViewCells() {
+        let ChatListTableViewNib = UINib(nibName: "NotificationDateTVC", bundle: nil)
+        tableView.register(ChatListTableViewNib, forHeaderFooterViewReuseIdentifier: "NotificationDateTVC")
+
+        let TableViewNib = UINib(nibName: "TutorNotificationTVC", bundle: nil)
+        tableView.register(TableViewNib, forCellReuseIdentifier: "TutorNotificationTVC")
+    }
+    
+    func setupViewWillAppear(){
+        self.tabBarItem.image = UIImage(named: "notificationFill_tutor")?.withRenderingMode(UIImage.RenderingMode.alwaysTemplate)
+        edgesForExtendedLayout = UIRectEdge.bottom
+        extendedLayoutIncludesOpaqueBars = true
+        tabBarController?.navigationController?.setNavigationBarHidden(true, animated: true)
+        tabBarController?.tabBar.items?.first?.badgeValue = unreadCount > 0 ? "\(unreadCount)" : nil
+        tabBarController?.tabBar.items?.first?.badgeColor = unreadCount > 0 ? .red : nil
+        tabBarController?.delegate = self
+        setUpLargeTitle(title: "Notification")
+    }
+    
+    // Function to categorize date
+    func groupDataByDate() {
+        let calendar = Calendar.current
+        groupedData = [:]
+        
+        // Process each notification
+        for item in notificationData {
+            let dateString = item.createdAt
+            guard let date = customDateFormatter.date(from: dateString) else {
+                print("Failed to parse date: \(dateString)")
+                continue
+            }
+            
+            // Categorize the date
+            let category: String
+            if calendar.isDateInToday(date) {
+                category = "Today"
+            } else if calendar.isDateInYesterday(date) {
+                category = "Yesterday"
+            } else {
+                category = displayFormatter.string(from: date)
+            }
+            
+            // Group rows by the date category
+            if groupedData[category] == nil {
+                groupedData[category] = []
+            }
+            groupedData[category]?.append(item)
+        }
+        
+        // Sort the headers (Today, Yesterday, then by date)
+        sortedHeaders = groupedData.keys.sorted { (first, second) -> Bool in
+            if first == "Today" { return true }
+            if second == "Today" { return false }
+            if first == "Yesterday" { return true }
+            if second == "Yesterday" { return false }
+            return first > second // Sort remaining dates in descending order
+        }
+
+        notificationData = sortedHeaders.flatMap { groupedData[$0] ?? [] }
+    }
+    
+}
+
+
+// MARK: - API SERVICE CALL
+
+extension TutorNotificationVC {
+    
+    func  fetchNotificationServerCall() {
+        if isApiInCall { return }
+        isApiInCall = true
+        view.endEditing(true)
+        Utils.showHUD(view: view)
+        let filterString = "{\"isDeleted\":false,\"userId\":\"\(CustomUserDefaults.UserId ?? "")\"}"
+        let param = [
+            "sortBy": "createdAt",
+            "sortType": -1,
+            "pagination": [
+                "limit": limit,
+                "pageNo": page
+            ],
+            "filter": filterString
+        ] as [String: Any]
+        DataManager.sharedInstance().fetchTutorNotification(parameter: param){
+            error, response in
+            DispatchQueue.main.async { [self] in
+                isApiInCall = false
+                Utils.hideHUD(view: self.view)
+                if let error = error {
+                    Utils.showAlert(message: error.localizedDescription, viewController: self)
+                } else {
+                    if let data = response?.data {
+                        if page == 1 {
+                            notificationData = data
+                        } else {
+                            notificationData.append(contentsOf: data)
+                        }
+                        
+                        if limit > data.count {
+                            isLast = true
+                        } else {
+                            page += 1
+                        }
+                        noDataV.isHidden = !notificationData.isEmpty
+                        SocketIOManager.socketUnReadNotification(userId: notificationData.first?.userId ?? "")
+                        self.groupDataByDate()
+                        tableView.reloadData()
+                    }
+                }
+            }
+        }
+    } // end of func
+    
+    
+    
+    // MARK: - Socket SERVICE CALL
+    
+    override func didReceiveUnreadNotification(notification: Notification ) {
+        if let messageDict = notification.object as? NSDictionary {
+            if let countValue = messageDict["count"] as? Int {
+                unreadCount = countValue
+            }
+            setupViewWillAppear()
+        }
+    }
+    
+    override func applicationDidBecomeActive(notification: Notification) {
+        if !SocketIOManager.isConnected  {
+            SocketIOManager.connectSocket()
+        }
+        setupViewWillAppear()
+    }
+    
+    override func didReceivePushNotification(notification: Notification) {
+        page = 1
+        isLast = false
+        isApiInCall = false
+        fetchNotificationServerCall()
+    }
+    
+    
+}
+
+
+
+
+extension TableviewHeader : UITableViewDelegate, UITableViewDataSource {
+    
+    func numberOfSections(in tableView: UITableView) -> Int {
+            return sortedHeaders.count
+        }
+        
+        func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+            let header = sortedHeaders[section]
+            return groupedData[header]?.count ?? 0
+        }
+        
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: "TutorNotificationTVC", for: indexPath) as! TutorNotificationTVC
+        
+        let header = sortedHeaders[indexPath.section]
+        if let notification = groupedData[header]?[indexPath.row] {
+            cell.configure(with: notification)
+            
+        let isLastItem = indexPath.row == (tableView.numberOfRows(inSection: indexPath.section) - 1)
+            cell.hideAtLastIndex(isVisible: isLastItem)
+        }
+        return cell
+    }
+        
+        func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
+            let headerView = tableView.dequeueReusableHeaderFooterView(withIdentifier: "NotificationDateTVC") as! NotificationDateTVC
+            headerView.dateL.text = sortedHeaders[section]
+            return headerView
+        }
+        
+        func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
+            return 40
+        }
+        
+        func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+            return UITableView.automaticDimension
+        }
+        
+        func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+            let header = sortedHeaders[indexPath.section]
+            if let notification = groupedData[header]?[indexPath.row] {
+                SocketIOManager.socketReadNotification(notificationId: notification.id, userId: notification.userId)
+                let notificationVC = NotificationMainVC.instantiateFromStoryboard()
+                notificationVC.notificationData = notification
+                navigationController?.pushViewController(notificationVC, animated: true)
+            }
+        }
+      
+    func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
+        var count = 0
+        for header in sortedHeaders {
+            count += groupedData[header]!.count
+        }
+        
+        if count == notificationData.count && !isLast && !isApiInCall {
+            fetchNotificationServerCall()
+        }
+    }
+}
