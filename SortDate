@@ -1,0 +1,39 @@
+import UIKit
+
+var days  = ["23/09/2024", "22/09/2024", "21/09/2024", "20/09/2024", "20/09/2024", "21/09/2024","21/09/2024","18/09/2024","18/09/2024","19/09/2024","17/09/2024","17/09/2024","16/09/2024","15/09/2024"]
+
+var sortedHeaders = Array(repeating: "", count: days.count)
+var sortedindex = 0
+
+let displayFormatter = DateFormatter()
+displayFormatter.dateFormat = "dd/MM/yyyy"
+let calender = Calendar.current
+
+for item in days {
+    let date = displayFormatter.date(from: item)!
+    let currentValue: String
+    
+    if calender.isDateInToday(date ){
+        currentValue = "Today"
+    } else if calender.isDateInYesterday(date){
+        currentValue = "yesterday"
+    } else {
+        currentValue = displayFormatter.string(from: date)
+    }
+    
+    var isunique = true
+    for i in 0..<sortedindex {
+        if sortedHeaders[i] == currentValue{
+            isunique = false
+            break
+        }
+    }
+    if isunique{
+        sortedHeaders[sortedindex] = currentValue
+        sortedindex += 1
+    }
+}
+
+sortedHeaders = Array(sortedHeaders[0..<sortedindex])
+
+print(sortedHeaders)
