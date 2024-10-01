@@ -1,0 +1,164 @@
+//************   CONSTANT CLASS ************************//
+
+let BASEURL = "https://api-devs.pointerup.com/"
+
+var ACCESSTOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiIzMTU5YzZjZi00ZDU2LTRiNmItYTAwNy1hNjc2ZDZhYjE3MGMiLCJpYXQiOjE3Mjc0NDg2OTIsImV4cCI6MTcyNzQ1NTg5MiwiaXNzIjoiUG9pbnRlclVwIiwiYXVkIjoiUG9pbnRlclVwIEFwcGxpY2F0aW9uIiwidHlwZSI6IkFDQ0VTUyIsImFjY2VzcyI6IkJhc2ljIiwicm9sZVR5cGUiOiJTVE9SRV9PV05FUiIsImJ1c2luZXNzSWQiOiIifQ.-GA5hWGdKUDBzFbL0jqtbXnXYXYWDbYl4zy7ArsJk1w"
+var REFRESHTOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiIzMTU5YzZjZi00ZDU2LTRiNmItYTAwNy1hNjc2ZDZhYjE3MGMiLCJpYXQiOjE3Mjc0MzUzNzcsImV4cCI6MTczMDAyNzM3NywiaXNzIjoiUG9pbnRlclVwIiwiYXVkIjoiUG9pbnRlclVwIEFwcGxpY2F0aW9uIiwidHlwZSI6IlJFRlJFU0giLCJyb2xlVHlwZSI6IlNUT1JFX09XTkVSIiwiYnVzaW5lc3NJZCI6IiJ9.HcRrl5GnT4_rGvxGuSg284Rh5-v-0p3EVQ7Ndk2GN64"
+
+let JSON_CONVERSION_ERROR = "Json conversion error found."
+
+
+//************   DATA MANAGER CLASS   ************************//
+
+import Alamofire
+import Foundation
+
+
+class DataManager {
+    var alamofireManager: Session
+    private static let _sharedInstance = DataManager()
+    
+    static func sharedInstance() -> DataManager {
+        return _sharedInstance
+    }
+    
+    init() {
+        let configuration: URLSessionConfiguration = {
+            let configuration = URLSessionConfiguration.default
+            configuration.shouldUseExtendedBackgroundIdleMode = true
+            return configuration
+        }()
+        alamofireManager = Session(configuration: configuration)
+    }
+    
+    static func getHeader(isRefreshToken: Bool) -> HTTPHeaders {
+        let headers = [
+            "Content-Type": "application/json",
+            "authorization": "Bearer " + (isRefreshToken ? REFRESHTOKEN : ACCESSTOKEN),
+        ]
+        return HTTPHeaders(headers)
+    }
+    
+    func request(_ method: HTTPMethod, _ url: String, parameter: Parameters? = nil, isRefreshToken: Bool = false, completionHandler: @escaping (_ statusCode: Int?, _ error: Error?, _ result: [String: AnyObject]?) -> Void) {
+        
+        let fullUrl: URLConvertible = BASEURL + url
+        
+        print("-- -- -- -- -- -- -- -- -- -- --")
+        print("Url: \(fullUrl)")
+        print("Header: \(DataManager.getHeader(isRefreshToken: isRefreshToken))")
+        print("Param: \(parameter ?? [:])")
+        print("Method: \(method.rawValue)")
+        
+        let request = AF.request(fullUrl, method: method, parameters: parameter, encoding: JSONEncoding.default, headers: DataManager.getHeader(isRefreshToken: isRefreshToken)).validate()
+        request.responseJSON { response in
+            print("IsSuccess: \(response.response?.statusCode == 200)")
+            print("StatusCode: \(response.response?.statusCode ?? 0)")
+
+            switch response.result {
+            case .success(let value):
+                if let json = value as? [String: AnyObject] {
+                    print("Response: \(json)")
+                    print("-- -- -- -- -- -- -- --")
+                    completionHandler(response.response?.statusCode, nil, json)
+                } else {
+                    print("Response: Unexpected data format")
+                }
+                
+            case .failure(let error):
+                print("Response: NO RESPONSE FOUND")
+                print("Error: \(error.localizedDescription)")
+                print("-- -- -- -- -- -- -- --")
+                if response.response?.statusCode == 401 {
+                    print("Error 401: Unauthorized - Attempting to refresh token")
+                    
+                    DataManager.sharedInstance().getRefreshToken { refreshError, results in
+                        DispatchQueue.main.async {
+                            if let refreshError = refreshError {
+                                print("Refresh Token Error: \(refreshError.localizedDescription)")
+                                completionHandler(nil, refreshError, nil)
+                            } else if let token = results?.data {
+                                // Update the access and refresh tokens
+                                ACCESSTOKEN = token.accessToken
+                                REFRESHTOKEN = token.refreshToken
+                                
+                                print("Token refresh successful, retrying original request with new token...")
+                                DataManager._sharedInstance.request(method, url, completionHandler: completionHandler)
+                            } else {
+                                print("Unexpected token refresh response format")
+                                completionHandler(nil, NSError(domain: "Token Refresh Failed", code: 0, userInfo: nil), nil)
+                            }
+                        }
+                    }
+                } else {
+                    completionHandler(nil, error, nil)
+                }
+            }
+        }
+    }
+}
+
+import ObjectMapper
+
+extension DataManager {
+    
+    // Fetch components
+    
+    func fetchComponents(parameter: [String: Any],completionHandler: @escaping (_ error: Error?, _ response: CompomentResponse?) -> Void) {
+        
+        DataManager.sharedInstance().request(.post, EndPoint.fetchComponents.rawValue, parameter: parameter, completionHandler: { statusCode,error,result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result, let response = Mapper<CompomentResponse>().map(JSON: result) {
+                    completionHandler(nil, response)
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        })
+    }
+    
+    func getRefreshToken(completionHandler: @escaping (_ error: Error?, _ response: RefreshTokenResponse?) -> Void) {
+        DataManager.sharedInstance().request(.post, EndPoint.fetchRefreshToken.rawValue, parameter: nil, isRefreshToken: true) { _, error, result in
+            if let error = error {
+                completionHandler(error, nil)
+            } else {
+                if let result = result,
+                   let response = Mapper<RefreshTokenResponse>().map(JSON: result) {
+                    if response.status == 200 {
+                        completionHandler(nil, response)
+                    } else {
+                        completionHandler(AppError(errorString: response.message), nil)
+                    }
+                } else {
+                    let error = AppError(errorString: JSON_CONVERSION_ERROR)
+                    completionHandler(error as Error, nil)
+                }
+            }
+        }
+    }   
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
